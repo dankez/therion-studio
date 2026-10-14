@@ -235,6 +235,56 @@ int runEditorUndoTransactionStaleRevisionTest()
 
     return 0;
 }
+
+int runSnapshotReplacesOnlyChangedRangeTest()
+{
+    QStringList lines;
+    for (int index = 0; index < 5000; ++index) {
+        lines.append(QStringLiteral("point %1 %2 station -name s%3").arg(index).arg(index * 2).arg(index));
+    }
+    const QString beforeText = lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+    lines[2500] = QStringLiteral("point 1 2 station -name moved");
+    const QString afterText = lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+
+    bool loading = false;
+    int currentLineNumber = 1;
+    QPlainTextEdit editor;
+    editor.setPlainText(beforeText);
+
+    TextEditorSourceRewriteContext context;
+    context.editor = &editor;
+    context.loading = &loading;
+    context.currentLineNumber = &currentLineNumber;
+    TextEditorSourceRewriteController controller(std::move(context));
+
+    int maxTouched = 0;
+    QObject::connect(editor.document(), &QTextDocument::contentsChange,
+                     [&maxTouched](int, int removed, int added) {
+                         maxTouched = qMax(maxTouched, qMax(removed, added));
+                     });
+
+    controller.applySourceSnapshotForTransaction(afterText);
+    if (!expect(editor.toPlainText() == afterText,
+                "Snapshot apply should produce the exact target text.")) {
+        return 1;
+    }
+    if (!expect(maxTouched > 0 && maxTouched < 100,
+                "Snapshot apply should replace only the changed range, not the whole document.")) {
+        std::cerr << "touched characters: " << maxTouched << '\n';
+        return 1;
+    }
+
+    const QString surrogateBefore = QStringLiteral("a") + QString::fromUcs4(U"\U0001F600") + QStringLiteral("b\n");
+    const QString surrogateAfter = QStringLiteral("a") + QString::fromUcs4(U"\U0001F601") + QStringLiteral("b\n");
+    editor.setPlainText(surrogateBefore);
+    controller.applySourceSnapshotForTransaction(surrogateAfter);
+    if (!expect(editor.toPlainText() == surrogateAfter,
+                "Snapshot apply should keep surrogate pairs intact.")) {
+        return 1;
+    }
+
+    return 0;
+}
 }
 
 int main(int argc, char **argv)
@@ -248,6 +298,9 @@ int main(int argc, char **argv)
         return 1;
     }
     if (runEditorUndoTransactionStaleRevisionTest() != 0) {
+        return 1;
+    }
+    if (runSnapshotReplacesOnlyChangedRangeTest() != 0) {
         return 1;
     }
 

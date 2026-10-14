@@ -146,26 +146,56 @@ void TextEditorSourceRewriteController::replaceEditorText(const QString &content
         return;
     }
 
-    if (context_.editor->toPlainText() == contents) {
-        return;
-    }
-
-    if (!recordUndoStep) {
-        context_.editor->setPlainText(contents);
+    const QString current = context_.editor->toPlainText();
+    if (current == contents) {
         return;
     }
 
     QTextDocument *document = context_.editor->document();
-    if (document == nullptr) {
+    if (document == nullptr || current.isEmpty()) {
         context_.editor->setPlainText(contents);
         return;
     }
 
+    // Replace only the differing middle so highlighting, layout and the
+    // projection work stay proportional to the edit, not to the document.
+    const qsizetype maxCommon = qMin(current.size(), contents.size());
+    qsizetype prefix = 0;
+    while (prefix < maxCommon && current.at(prefix) == contents.at(prefix)) {
+        ++prefix;
+    }
+    if (prefix > 0 && current.at(prefix - 1).isHighSurrogate()) {
+        --prefix;
+    }
+    qsizetype suffix = 0;
+    const qsizetype maxSuffix = maxCommon - prefix;
+    while (suffix < maxSuffix
+           && current.at(current.size() - 1 - suffix) == contents.at(contents.size() - 1 - suffix)) {
+        ++suffix;
+    }
+    if (suffix > 0 && current.at(current.size() - suffix).isLowSurrogate()) {
+        --suffix;
+    }
+
+    const int start = static_cast<int>(prefix);
+    const int removedEnd = static_cast<int>(current.size() - suffix);
+    const QString inserted = contents.mid(prefix, contents.size() - suffix - prefix);
+
+    const bool undoWasEnabled = document->isUndoRedoEnabled();
+    if (!recordUndoStep && undoWasEnabled) {
+        document->setUndoRedoEnabled(false);
+    }
+
     QTextCursor rewriteCursor(document);
     rewriteCursor.beginEditBlock();
-    rewriteCursor.select(QTextCursor::Document);
-    rewriteCursor.insertText(contents);
+    rewriteCursor.setPosition(start);
+    rewriteCursor.setPosition(removedEnd, QTextCursor::KeepAnchor);
+    rewriteCursor.insertText(inserted);
     rewriteCursor.endEditBlock();
+
+    if (!recordUndoStep && undoWasEnabled) {
+        document->setUndoRedoEnabled(true);
+    }
 }
 
 void TextEditorSourceRewriteController::replaceTextPreservingCursor(const QString &contents,
