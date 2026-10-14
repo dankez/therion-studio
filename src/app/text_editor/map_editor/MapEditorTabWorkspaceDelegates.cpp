@@ -19,12 +19,6 @@ bool MapEditorTab::loadFile(const QString &filePath, QString *errorMessage)
         clearDraftGeometryItems();
         clearBackgroundImageItems();
     }
-    const bool loadedWhileHidden = mapView_ == nullptr
-        || mapView_->viewport() == nullptr
-        || !isVisible()
-        || !mapView_->isVisible()
-        || !mapView_->viewport()->isVisible();
-
     const bool loaded = textEditor_->loadFile(filePath, errorMessage);
     if (!loaded) {
         return false;
@@ -48,7 +42,6 @@ bool MapEditorTab::loadFile(const QString &filePath, QString *errorMessage)
     refreshTitle();
     refreshStatus();
     resetUndoOwnerState();
-    mapSceneRefreshWhenVisiblePending_ = loadedWhileHidden;
     return true;
 }
 

@@ -112,6 +112,11 @@ QString TextEditorTab::filePath() const
 
 void TextEditorTab::handleTextChanged()
 {
+    // QPlainTextEdit::textChanged also fires when the highlighter re-applies formats to unchanged text.
+    if (highlighter_ != nullptr && highlighter_->isReformatting()) {
+        return;
+    }
+
     TextEditorTabInteractionController::TextChangedActions actions;
     actions.rebuildBlocksCanvasFromText = [this]() {
         rebuildBlocksCanvasFromText();

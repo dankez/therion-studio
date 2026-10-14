@@ -1117,7 +1117,13 @@ void MainWindow::rebuildMapObjectsTree()
         text = mapTab->text();
     }
 
-    const QVector<TherionStudio::ProjectStructureEntry> entries = TherionStudio::ProjectStructureIndex::scanTh2Objects(filePath, text);
+    // Startup and tab switches rebuild this tree several times with unchanged text; a full TH2 reparse is costly.
+    if (filePath != mapObjectsScanCacheFilePath_ || text != mapObjectsScanCacheText_) {
+        mapObjectsScanCacheEntries_ = TherionStudio::ProjectStructureIndex::scanTh2Objects(filePath, text);
+        mapObjectsScanCacheFilePath_ = filePath;
+        mapObjectsScanCacheText_ = text;
+    }
+    const QVector<TherionStudio::ProjectStructureEntry> &entries = mapObjectsScanCacheEntries_;
     if (entries.isEmpty()) {
         auto *placeholderItem = new QStandardItem(tr("No TH2 scraps, points, lines, or areas were found in the current document"));
         placeholderItem->setEditable(false);

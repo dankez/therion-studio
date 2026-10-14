@@ -17,6 +17,9 @@
 #include <QTreeView>
 #include <QtTest/QtTest>
 
+#include <algorithm>
+#include <tuple>
+
 using namespace TherionStudio;
 
 namespace
@@ -142,7 +145,101 @@ private:
         return true;
     }
 
+    struct SceneItemSnapshot
+    {
+        int type = 0;
+        int line = 0;
+        bool visible = false;
+        double z = 0.0;
+        QPointF position;
+        QRectF bounds;
+
+        bool operator<(const SceneItemSnapshot &other) const
+        {
+            return std::make_tuple(line, type, z, position.x(), position.y())
+                < std::make_tuple(other.line, other.type, other.z, other.position.x(), other.position.y());
+        }
+    };
+
+    static QList<SceneItemSnapshot> sceneSnapshot(QGraphicsScene *scene)
+    {
+        QList<SceneItemSnapshot> snapshot;
+        for (QGraphicsItem *item : scene->items()) {
+            bool ok = false;
+            const int line = item->data(kMapSceneLineNumberRole).toInt(&ok);
+            if (!ok || line <= 0) {
+                continue;
+            }
+            snapshot.append({item->type(), line, item->isVisible(), item->zValue(), item->scenePos(),
+                             item->sceneBoundingRect()});
+        }
+        std::sort(snapshot.begin(), snapshot.end());
+        return snapshot;
+    }
+
 private slots:
+    void testHiddenLoadedTabShowsWithoutSceneRebuild()
+    {
+        // Session restore loads map tabs while the window is hidden. Showing them must not rebuild the
+        // whole scene again (seconds on large maps), and the result must match a tab loaded while visible.
+        QDir().mkpath(QStringLiteral(".verification"));
+        QTemporaryDir directory(QDir::current().filePath(QStringLiteral(".verification/hidden-load-XXXXXX")));
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("hidden_load.th2"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(fixtureSource().toUtf8());
+        file.close();
+
+        QtFileSystem fileSystem;
+        FakeSessionStore hiddenStore;
+        FakeSessionStore visibleStore;
+        QString error;
+
+        MapEditorTab visibleTab(fileSystem, visibleStore, CommandCatalogStore());
+        visibleTab.resize(1280, 900);
+        visibleTab.show();
+        QVERIFY2(visibleTab.loadFile(path, &error), qPrintable(error));
+
+        MapEditorTab hiddenTab(fileSystem, hiddenStore, CommandCatalogStore());
+        hiddenTab.resize(1280, 900);
+        QVERIFY2(hiddenTab.loadFile(path, &error), qPrintable(error));
+        QGraphicsScene *hiddenScene = hiddenTab.findChild<QGraphicsView *>()->scene();
+        QList<QGraphicsItem *> geometryBeforeShow = sceneGeometryItems(hiddenScene);
+        QVERIFY(!geometryBeforeShow.isEmpty());
+        constexpr int kProbeRole = Qt::UserRole + 999;
+        geometryBeforeShow.first()->setData(kProbeRole, true);
+
+        hiddenTab.show();
+        QTest::qWait(50);
+        QCoreApplication::processEvents();
+        QTest::qWait(50);
+        visibleTab.triggerFit();
+        hiddenTab.triggerFit();
+        QCoreApplication::processEvents();
+
+        bool probeSurvived = false;
+        for (QGraphicsItem *item : hiddenScene->items()) {
+            probeSurvived = probeSurvived || item->data(kProbeRole).toBool();
+        }
+        QVERIFY2(probeSurvived, "Showing a hidden-loaded map tab rebuilt the whole scene.");
+
+        const QList<SceneItemSnapshot> hidden = sceneSnapshot(hiddenScene);
+        const QList<SceneItemSnapshot> visible = sceneSnapshot(visibleTab.findChild<QGraphicsView *>()->scene());
+        QCOMPARE(hidden.size(), visible.size());
+        for (qsizetype index = 0; index < hidden.size(); ++index) {
+            const SceneItemSnapshot &left = hidden.at(index);
+            const SceneItemSnapshot &right = visible.at(index);
+            QCOMPARE(left.line, right.line);
+            QCOMPARE(left.type, right.type);
+            QCOMPARE(left.visible, right.visible);
+            QVERIFY2(qAbs(left.bounds.width() - right.bounds.width()) < 1e-6
+                         && qAbs(left.bounds.height() - right.bounds.height()) < 1e-6
+                         && QLineF(left.bounds.center(), right.bounds.center()).length() < 1e-6,
+                     qPrintable(QStringLiteral("line %1 type %2 bounds differ").arg(left.line).arg(left.type)));
+        }
+    }
+
     void testBulkHideAndShowAll()
     {
         Harness harness;

@@ -312,6 +312,56 @@ int main(int argc, char *argv[])
     tab.setProjectValidationDiagnostics({});
 
     {
+        // Re-highlighting only changes formats; it must not look like a text edit (that re-ran project
+        // validation, the blocks canvas and the map scene rebuild on every diagnostics update).
+        int textChangedCount = 0;
+        const QMetaObject::Connection connection =
+            QObject::connect(&tab, &TextEditorTab::documentTextChanged, [&textChangedCount]() { ++textChangedCount; });
+        editor->setPlainText(QStringLiteral("point 0 0 station -name bad-name\n"));
+        pumpEvents();
+        if (!expect(textChangedCount == 1, "Replacing the text should report one document text change.")) {
+            return 1;
+        }
+        tab.setProjectValidationDiagnostics({externalDiagnostic});
+        pumpEvents();
+        tab.setProjectValidationDiagnostics({});
+        pumpEvents();
+        if (!expect(textChangedCount == 1, "Diagnostics re-highlighting must not report a document text change.")) {
+            return 1;
+        }
+        if (!expect(!tokenHasWaveUnderline(editor->document()->findBlockByLineNumber(0), QStringLiteral("bad-name")),
+                    "Clearing project diagnostics should remove their underline.")) {
+            return 1;
+        }
+        tab.setProjectValidationDiagnostics({externalDiagnostic});
+        pumpEvents();
+        tab.setProjectValidationDiagnostics({externalDiagnostic});
+        pumpEvents();
+        if (!expect(tokenHasWaveUnderline(editor->document()->findBlockByLineNumber(0), QStringLiteral("bad-name")),
+                    "Re-applying identical project diagnostics should keep their underline.")) {
+            return 1;
+        }
+        tab.setProjectValidationDiagnostics({});
+        pumpEvents();
+        QTextCursor sameLengthEdit(editor->document());
+        sameLengthEdit.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+        sameLengthEdit.insertText(QStringLiteral("P"));
+        pumpEvents();
+        if (!expect(textChangedCount == 2, "A same-length replacement should report a document text change.")) {
+            return 1;
+        }
+        editor->undo();
+        pumpEvents();
+        editor->redo();
+        pumpEvents();
+        if (!expect(textChangedCount == 4, "Undo and redo should each report a document text change.")) {
+            return 1;
+        }
+        QObject::disconnect(connection);
+        tab.setProjectValidationDiagnostics({});
+    }
+
+    {
         editor->setPlainText(QStringLiteral("\n"));
         QTextBlock firstLine = editor->document()->findBlockByLineNumber(0);
         QTextCursor cursor(firstLine);

@@ -927,7 +927,6 @@ private:
     bool preserveNextSourceDrivenMapRefresh_ = false;
     int preserveMapUndoForSourceRevision_ = 0;
     bool mapSceneRefreshPending_ = false;
-    bool mapSceneRefreshWhenVisiblePending_ = false;
     MapEditorSceneGeneration sceneGeneration_;
     MapEditorSceneInteractionIndex sceneInteractionIndex_;
     quint64 lastCompletedSceneProjectionGeneration_ = 0;

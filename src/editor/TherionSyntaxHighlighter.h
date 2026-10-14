@@ -24,12 +24,15 @@ public:
     void reloadPaletteForApplicationAppearance();
     void setSourceDocumentType(TherionSourceDocumentType sourceType);
     void setExternalDiagnostics(const QVector<TherionSourceDiagnostic> &diagnostics);
+    // True while re-applying formats to unchanged text; QTextDocument still reports a content change.
+    bool isReformatting() const;
 
 protected:
     void highlightBlock(const QString &text) override;
 
 private:
     void loadPalette();
+    void reformatAllBlocks();
     void applyStyle(const QString &styleName, const QJsonObject &styleObject);
     void loadCommandCatalogKeywords();
     void applyValidatorInvalidTokenFormats(const QString &text);
@@ -58,6 +61,7 @@ private:
     TherionSourceValidationResult cachedValidationResult_;
     QVector<TherionSourceDiagnostic> externalDiagnostics_;
     int cachedValidationRevision_ = -1;
+    bool reformatting_ = false;
     TherionSourceDocumentType sourceDocumentType_ = TherionSourceDocumentType::Unknown;
     CommandCatalogStore catalogStore_;
 };

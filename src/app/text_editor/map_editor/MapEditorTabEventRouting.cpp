@@ -259,16 +259,6 @@ bool MapEditorTab::eventFilter(QObject *watched, QEvent *event)
             }
             if (event->type() == QEvent::Show) {
                 updateMagnifierOverlayGeometry();
-                if (mapSceneRefreshWhenVisiblePending_) {
-                    mapSceneRefreshWhenVisiblePending_ = false;
-                    QPointer<MapEditorTab> guarded(this);
-                    QTimer::singleShot(0, this, [guarded]() {
-                        if (guarded == nullptr) {
-                            return;
-                        }
-                        guarded->refreshMapScenePreservingUndoStack();
-                    });
-                }
             }
             break;
         }

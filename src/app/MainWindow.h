@@ -517,6 +517,9 @@ private:
     QStandardItemModel *searchResultsModel_ = nullptr;
     QStandardItemModel *validationResultsModel_ = nullptr;
     QStandardItemModel *mapObjectsModel_ = nullptr;
+    QString mapObjectsScanCacheFilePath_;
+    QString mapObjectsScanCacheText_;
+    QVector<TherionStudio::ProjectStructureEntry> mapObjectsScanCacheEntries_;
     QVector<TherionStudio::TherionSourceDiagnostic> validationDiagnostics_;
     QVector<QString> validationDiagnosticFilePaths_;
     QVector<TherionStudio::ProjectValidationScanner::Finding> validationExportFindings_;

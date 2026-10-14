@@ -17,6 +17,7 @@
 #include <QTextCharFormat>
 #include <QTextDocument>
 
+#include <algorithm>
 #include <utility>
 
 namespace TherionStudio
@@ -196,7 +197,25 @@ TherionSyntaxHighlighter::TherionSyntaxHighlighter(CommandCatalogStore catalogSt
 void TherionSyntaxHighlighter::reloadPaletteForApplicationAppearance()
 {
     loadPalette();
+    reformatAllBlocks();
+}
+
+bool TherionSyntaxHighlighter::isReformatting() const
+{
+    return reformatting_;
+}
+
+void TherionSyntaxHighlighter::reformatAllBlocks()
+{
+    const bool wasReformatting = reformatting_;
+    const int revisionBefore = document() != nullptr ? document()->revision() : -1;
+    reformatting_ = true;
     rehighlight();
+    reformatting_ = wasReformatting;
+    // Applying formats bumps the document revision without changing text; keep the validation cache valid.
+    if (document() != nullptr && cachedValidationRevision_ == revisionBefore) {
+        cachedValidationRevision_ = document()->revision();
+    }
 }
 
 void TherionSyntaxHighlighter::setSourceDocumentType(TherionSourceDocumentType sourceType)
@@ -209,7 +228,7 @@ void TherionSyntaxHighlighter::setSourceDocumentType(TherionSourceDocumentType s
     cachedValidationResult_ = {};
     cachedValidationRevision_ = -1;
     sourceSnapshotCache_.clear();
-    rehighlight();
+    reformatAllBlocks();
 }
 
 void TherionSyntaxHighlighter::loadPalette()
@@ -651,8 +670,16 @@ void TherionSyntaxHighlighter::applyValidatorInvalidTokenFormats(const QString &
 
 void TherionSyntaxHighlighter::setExternalDiagnostics(const QVector<TherionSourceDiagnostic> &diagnostics)
 {
+    const auto sameFormatting = [](const TherionSourceDiagnostic &left, const TherionSourceDiagnostic &right) {
+        return left.lineNumber == right.lineNumber && left.columnNumber == right.columnNumber
+            && left.columnLength == right.columnLength && left.severity == right.severity;
+    };
+    const bool unchanged = std::equal(externalDiagnostics_.cbegin(), externalDiagnostics_.cend(),
+                                      diagnostics.cbegin(), diagnostics.cend(), sameFormatting);
     externalDiagnostics_ = diagnostics;
-    rehighlight();
+    if (!unchanged) {
+        reformatAllBlocks();
+    }
 }
 
 const QTextCharFormat &TherionSyntaxHighlighter::validationFormatForSeverity(
