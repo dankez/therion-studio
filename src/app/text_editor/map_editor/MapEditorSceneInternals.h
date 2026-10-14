@@ -1250,7 +1250,7 @@ public:
             const qreal arrowHalfWidth = 6.0 * scale;
             const QPointF arrowBase = arrowTip - (direction * arrowLength);
             path.addEllipse(arrowBase, 7.0 * scale, 7.0 * scale);
-            const qreal shaftLength = qMax<qreal>(0.0, length - arrowLength);
+            const qreal shaftLength = qMin<qreal>(8.0 * scale, qMax<qreal>(0.0, length - arrowLength));
             if (shaftLength > 1e-6) {
                 const QPointF shaftStart = arrowBase - (direction * shaftLength);
                 QPainterPath shaftPath;
