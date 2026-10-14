@@ -24,6 +24,13 @@ struct MapEditorLineDecorationVertex
     std::optional<qreal> leftSize;
 };
 
+struct MapEditorLineDecorationVertexMetric
+{
+    qreal distance = 0.0;
+    std::optional<qreal> orientationDegrees;
+    std::optional<qreal> leftSize;
+};
+
 class MapEditorLineDecorationItem final : public QGraphicsPathItem
 {
 public:
@@ -53,6 +60,9 @@ protected:
 private:
     void updatePaintBounds();
     const QList<QPolygonF> &projectedPolygonsForProjection(const QTransform &projection) const;
+    const QVector<QVector<qreal>> &projectedCumulativeDistancesForProjection(const QTransform &projection) const;
+    const QVector<MapEditorLineDecorationVertexMetric> &sourceVertexMetrics() const;
+    qreal sourcePathLength() const;
     void drawDecorations(QPainter *painter,
                          qreal zoomOutScale,
                          const QTransform &projection,
@@ -99,7 +109,12 @@ private:
     mutable QTransform projectedPathTransform_;
     mutable QPainterPath projectedPathSource_;
     mutable QList<QPolygonF> projectedPathPolygons_;
+    mutable QVector<QVector<qreal>> projectedPathDistances_;
     mutable bool projectedPathCacheValid_ = false;
+    // Path metrics depend only on source geometry, so they survive zoom and pan repaints.
+    mutable QVector<MapEditorLineDecorationVertexMetric> sourceVertexMetrics_;
+    mutable qreal sourcePathLength_ = 0.0;
+    mutable bool sourceMetricsCacheValid_ = false;
 };
 
 void updateMapEditorScreenSpaceMetrics(QGraphicsScene *scene, const QTransform &viewTransform);

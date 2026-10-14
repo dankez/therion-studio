@@ -273,12 +273,7 @@ struct LineDecorationSample
     QPointF normal;
 };
 
-struct LineDecorationVertexMetric
-{
-    qreal distance = 0.0;
-    std::optional<qreal> orientationDegrees;
-    std::optional<qreal> leftSize;
-};
+using LineDecorationVertexMetric = MapEditorLineDecorationVertexMetric;
 
 qreal normalizeDegrees(qreal value)
 {
@@ -497,6 +492,7 @@ void MapEditorLineDecorationItem::setDecorationPath(const QPainterPath &path)
     prepareGeometryChange();
     setPath(path);
     projectedPathCacheValid_ = false;
+    sourceMetricsCacheValid_ = false;
     updatePaintBounds();
 }
 
@@ -570,11 +566,51 @@ const QList<QPolygonF> &MapEditorLineDecorationItem::projectedPolygonsForProject
     const QPainterPath currentPath = path();
     if (!projectedPathCacheValid_ || projectedPathSource_ != currentPath || projectedPathTransform_ != projection) {
         projectedPathPolygons_ = projectedLinePolygons(currentPath, projection);
+        projectedPathDistances_.clear();
+        projectedPathDistances_.reserve(projectedPathPolygons_.size());
+        for (const QPolygonF &points : std::as_const(projectedPathPolygons_)) {
+            QVector<qreal> distances;
+            if (!points.isEmpty()) {
+                distances.reserve(points.size());
+                distances.append(0.0);
+                for (int index = 1; index < points.size(); ++index) {
+                    const QPointF delta = points[index] - points[index - 1];
+                    distances.append(distances.last() + std::hypot(delta.x(), delta.y()));
+                }
+            }
+            projectedPathDistances_.append(std::move(distances));
+        }
         projectedPathSource_ = currentPath;
         projectedPathTransform_ = projection;
         projectedPathCacheValid_ = true;
     }
     return projectedPathPolygons_;
+}
+
+const QVector<QVector<qreal>> &MapEditorLineDecorationItem::projectedCumulativeDistancesForProjection(
+    const QTransform &projection) const
+{
+    projectedPolygonsForProjection(projection);
+    return projectedPathDistances_;
+}
+
+const QVector<MapEditorLineDecorationVertexMetric> &MapEditorLineDecorationItem::sourceVertexMetrics() const
+{
+    sourcePathLength();
+    return sourceVertexMetrics_;
+}
+
+qreal MapEditorLineDecorationItem::sourcePathLength() const
+{
+    if (!sourceMetricsCacheValid_) {
+        const QPainterPath currentPath = path();
+        sourcePathLength_ = currentPath.length();
+        sourceVertexMetrics_ = usesLineVertexMetrics()
+            ? lineDecorationVertexMetrics(currentPath, lineVertices_)
+            : QVector<MapEditorLineDecorationVertexMetric>();
+        sourceMetricsCacheValid_ = true;
+    }
+    return sourcePathLength_;
 }
 
 qreal MapEditorLineDecorationItem::hitDistancePixels(const QPointF &scenePosition,
@@ -650,20 +686,7 @@ void MapEditorLineDecorationItem::paint(QPainter *painter,
     const qreal zoomOutScale = zoomOutStrokeScale(lod);
     const QTransform projection = painter->worldTransform();
     const QList<QPolygonF> &polygons = projectedPolygonsForProjection(projection);
-    QVector<QVector<qreal>> cumulativeDistances;
-    cumulativeDistances.reserve(polygons.size());
-    for (const QPolygonF &points : polygons) {
-        QVector<qreal> distances;
-        if (!points.isEmpty()) {
-            distances.append(0.0);
-            distances.reserve(points.size());
-            for (int index = 1; index < points.size(); ++index) {
-                const QPointF delta = points[index] - points[index - 1];
-                distances.append(distances.last() + std::hypot(delta.x(), delta.y()));
-            }
-        }
-        cumulativeDistances.append(std::move(distances));
-    }
+    const QVector<QVector<qreal>> &cumulativeDistances = projectedCumulativeDistancesForProjection(projection);
     drawDecorations(painter, zoomOutScale, projection, polygons, cumulativeDistances);
 
     const bool selected = (option != nullptr && (option->state & QStyle::State_Selected))
@@ -698,8 +721,9 @@ void MapEditorLineDecorationItem::drawScreenDecoration(
     const QTransform &projection, const QList<QPolygonF> &polygons,
     const QVector<QVector<qreal>> &cumulativeDistances)
 {
-    const auto sourceMetrics = decoration.kind == MapEditorLineDecorationKind::SlopeTicks
-        ? lineDecorationVertexMetrics(path(), lineVertices_) : QVector<LineDecorationVertexMetric>();
+    const QVector<LineDecorationVertexMetric> emptyMetrics;
+    const QVector<LineDecorationVertexMetric> &sourceMetrics = decoration.kind == MapEditorLineDecorationKind::SlopeTicks
+        ? sourceVertexMetrics() : emptyMetrics;
     const bool sourceLengths = std::any_of(sourceMetrics.cbegin(), sourceMetrics.cend(),
         [](const auto &metric) { return metric.leftSize.has_value(); });
     const QRectF deviceBounds(0.0, 0.0,
@@ -742,7 +766,7 @@ void MapEditorLineDecorationItem::drawScreenDecoration(
         const qreal count = slope && decoration.adjustSpacing
             ? std::floor(drawableLength / step + 0.001) + 1
             : qMax<qreal>(slope ? 1 : 0, std::floor(length / step));
-        const qreal lengthScale = length / qMax<qreal>(1e-9, path().length());
+        const qreal lengthScale = length / qMax<qreal>(1e-9, sourcePathLength());
         qreal sourceExtent = 0.0;
         if (sourceLengths) {
             for (const auto &metric : sourceMetrics) {
