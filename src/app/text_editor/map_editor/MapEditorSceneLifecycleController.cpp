@@ -75,6 +75,10 @@ void MapEditorSceneLifecycleController::clearMapScene()
         }
     }
 
+    // Deleting each selected item would emit selectionChanged (and refresh
+    // the details panel) once per item; clear the selection in one step.
+    mapScene->clearSelection();
+
     // Let Qt reset its scene index before deleting the remaining items.
     mapScene->clear();
 

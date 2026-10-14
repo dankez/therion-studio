@@ -124,6 +124,23 @@ private slots:
         QCOMPARE(fixture.updatingSelection, alreadyUpdating);
     }
 
+    void clearEmitsSelectionChangedOnceForManySelectedItems()
+    {
+        SceneFixture fixture;
+        for (int index = 0; index < 50; ++index) {
+            auto *item = fixture.scene->addRect(index, 0, 1, 1);
+            item->setFlag(QGraphicsItem::ItemIsSelectable);
+            item->setSelected(true);
+        }
+        QCOMPARE(fixture.scene->selectedItems().size(), 50);
+        int selectionSignals = 0;
+        QObject::connect(fixture.scene, &QGraphicsScene::selectionChanged,
+                         fixture.scene, [&]() { ++selectionSignals; });
+        fixture.controller.clearMapScene();
+        QVERIFY(fixture.scene->items().isEmpty());
+        QCOMPARE(selectionSignals, 1);
+    }
+
     void largeSceneClearTiming()
     {
         SceneFixture fixture;
