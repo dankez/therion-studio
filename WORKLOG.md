@@ -39,6 +39,12 @@ Active planning only. Completed history belongs in archive files. Stable archite
   and timeout are distinct results, and the same worker recovers for later queries. `MainWindow` now composes the
   settings-backed custom-preset store and CSV file exporter; the tab keeps only preset/dialog presentation while
   deterministic CSV serialization and file IO are focused services with parity coverage.
+- Native 3D visualization now solves survey centrelines directly from `.th` and `.thconfig` without running Therion,
+  supports loop closure and coordinate fixes, and drapes 2D `.th2` scraps onto the 3D centreline via station anchors
+  (`point ... station -name ...`) with Procrustes similarity fit, IDW vertical Z interpolation, and extruded 3D wall ribbons.
+  Direct opening of `.th`, `.thconfig`, and `.th2` is integrated into the 3D Viewer tab and project browser sidebar.
+  3D viewport rendering performance is optimized by precomputing vertex normals at mesh load/projection time and replacing
+  per-frame struct sorting with compact index proxy sorting.
 - Keep LiDAR/point-cloud processing as design/backlog work until the Map/TH2 projection boundary has a concrete import,
   registration, and 2D projection design.
 
