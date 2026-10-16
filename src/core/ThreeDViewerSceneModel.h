@@ -77,6 +77,9 @@ struct ThreeDViewerMeshGroup
     quint32 surveyId = 0;
     QVector<ThreeDViewerVec3> vertices;
     QVector<std::array<quint32, 3>> triangles;
+    QVector<ThreeDViewerVec3> normals;
+
+    void computeNormals();
 };
 
 struct ThreeDViewerSurface

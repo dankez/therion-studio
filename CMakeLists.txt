@@ -112,6 +112,11 @@ set(THERION_CORE_SOURCES
     src/core/ThreeDViewerCamera.cpp
     src/core/ThreeDViewerCamera.h
     src/core/ThreeDViewerLoxLoader.cpp
+    src/core/TherionCentreline.cpp
+    src/core/TherionCentrelineSolver.cpp
+    src/core/TherionCentreline.h
+    src/core/TherionScrap3D.cpp
+    src/core/TherionScrap3D.h
     src/core/ThreeDViewerLoxLoader.h
     src/core/ThreeDViewerSceneModel.cpp
     src/core/ThreeDViewerSceneModel.h
@@ -199,7 +204,9 @@ set(THERION_CORE_QTEST_SUITES
     TherionSourceValidatorFixTest
     TherionSourceValidatorProjectionTest
     ProjectStructureIndexQTest
-    TherionTokenRulesTest)
+    TherionTokenRulesTest
+    TherionCentrelineTest
+    TherionScrap3DTest)
 
 set(THERION_MAIN_WINDOW_QTEST_SUITES
     MainWindowHelpDocumentTest
@@ -1222,7 +1229,9 @@ therion_add_core_qtest_runner(TherionCoreQTests
     tests/core/TherionSourceValidatorProjectionTest.cpp
     tests/core/ProjectStructureIndexQTest.cpp
     tests/core/TherionSourceTextTest.cpp
-    tests/core/TherionTokenRulesTest.cpp)
+    tests/core/TherionTokenRulesTest.cpp
+    tests/core/TherionCentrelineTest.cpp
+    tests/core/TherionScrap3DTest.cpp)
 
 target_compile_definitions(TherionCoreQTests PRIVATE
     THERION_STUDIO_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
@@ -1370,6 +1379,9 @@ qt_add_executable(ThreeDViewerQTests
     src/app/three_d_viewer/ThreeDViewerViewportWidget.h)
 
 target_link_libraries(ThreeDViewerQTests PRIVATE therion_core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Quick Qt6::QuickWidgets Qt6::Qml Qt6::QuickControls2 Qt6::Test)
+
+target_compile_definitions(ThreeDViewerQTests PRIVATE
+    THERION_STUDIO_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
 
 qt_add_resources(ThreeDViewerQTests ThreeDViewerQTestsResources
     PREFIX "/"

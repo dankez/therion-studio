@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <utility>
 
 namespace TherionStudio
@@ -1155,18 +1156,19 @@ QColor shadedMeshVertexColor(ThreeDViewerMeshColorMode mode,
     return scaledColor(sceneColorForMode(mode, vertex.z, bounds, backgroundMode), shade, alpha);
 }
 
-QSGGeometryNode *createMeshNode(const QVector<MeshTriangleRender> &triangles)
+QSGGeometryNode *createMeshNode(const QVector<MeshTriangleRender> &triangles, const QVector<int> &order)
 {
-    if (triangles.isEmpty()) {
+    if (triangles.isEmpty() || order.isEmpty()) {
         return nullptr;
     }
 
-    auto *geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), triangles.size() * 3);
+    auto *geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), order.size() * 3);
     geometry->setDrawingMode(QSGGeometry::DrawTriangles);
     auto *vertexData = geometry->vertexDataAsColoredPoint2D();
 
     int vertexIndex = 0;
-    for (const MeshTriangleRender &triangle : triangles) {
+    for (int idx : order) {
+        const MeshTriangleRender &triangle = triangles.at(idx);
         for (qsizetype pointIndex = 0; pointIndex < qsizetype(triangle.screenPoints.size()); ++pointIndex) {
             const QPointF &point = triangle.screenPoints.at(pointIndex);
             const QColor &color = triangle.colors.at(pointIndex);
@@ -1644,26 +1646,29 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
         const ThreeDViewerVec3 fillLightDirection = normalizedOrFallback(scaled(camera.forwardVector(), -1.0), {0.0, 0.0, 1.0});
 
         for (const ThreeDViewerMeshGroup &mesh : current.sceneModel.meshGroups) {
-            QVector<ThreeDViewerVec3> vertexNormals;
-            vertexNormals.resize(mesh.vertices.size());
-            for (ThreeDViewerVec3 &normal : vertexNormals) {
-                normal = {0.0, 0.0, 0.0};
-            }
-
-            for (const std::array<quint32, 3> &triangle : mesh.triangles) {
-                if (triangle[0] >= quint32(mesh.vertices.size())
-                    || triangle[1] >= quint32(mesh.vertices.size())
-                    || triangle[2] >= quint32(mesh.vertices.size())) {
-                    continue;
+            const bool hasNormals = (mesh.normals.size() == mesh.vertices.size());
+            QVector<ThreeDViewerVec3> fallbackNormals;
+            if (!hasNormals) {
+                fallbackNormals.resize(mesh.vertices.size());
+                for (ThreeDViewerVec3 &normal : fallbackNormals) {
+                    normal = {0.0, 0.0, 0.0};
                 }
 
-                const ThreeDViewerVec3 &v0 = mesh.vertices.at(triangle[0]);
-                const ThreeDViewerVec3 &v1 = mesh.vertices.at(triangle[1]);
-                const ThreeDViewerVec3 &v2 = mesh.vertices.at(triangle[2]);
-                const ThreeDViewerVec3 faceNormal = normalizedOrFallback(cross(subtract(v1, v0), subtract(v2, v0)), {0.0, 0.0, 1.0});
-                vertexNormals[int(triangle[0])] = add(vertexNormals.at(int(triangle[0])), faceNormal);
-                vertexNormals[int(triangle[1])] = add(vertexNormals.at(int(triangle[1])), faceNormal);
-                vertexNormals[int(triangle[2])] = add(vertexNormals.at(int(triangle[2])), faceNormal);
+                for (const std::array<quint32, 3> &triangle : mesh.triangles) {
+                    if (triangle[0] >= quint32(mesh.vertices.size())
+                        || triangle[1] >= quint32(mesh.vertices.size())
+                        || triangle[2] >= quint32(mesh.vertices.size())) {
+                        continue;
+                    }
+
+                    const ThreeDViewerVec3 &v0 = mesh.vertices.at(triangle[0]);
+                    const ThreeDViewerVec3 &v1 = mesh.vertices.at(triangle[1]);
+                    const ThreeDViewerVec3 &v2 = mesh.vertices.at(triangle[2]);
+                    const ThreeDViewerVec3 faceNormal = normalizedOrFallback(cross(subtract(v1, v0), subtract(v2, v0)), {0.0, 0.0, 1.0});
+                    fallbackNormals[int(triangle[0])] = add(fallbackNormals.at(int(triangle[0])), faceNormal);
+                    fallbackNormals[int(triangle[1])] = add(fallbackNormals.at(int(triangle[1])), faceNormal);
+                    fallbackNormals[int(triangle[2])] = add(fallbackNormals.at(int(triangle[2])), faceNormal);
+                }
             }
 
             for (const std::array<quint32, 3> &triangle : mesh.triangles) {
@@ -1683,10 +1688,20 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
                     continue;
                 }
 
-                const ThreeDViewerVec3 faceNormal = normalizedOrFallback(cross(subtract(v1, v0), subtract(v2, v0)), {0.0, 0.0, 1.0});
-                const ThreeDViewerVec3 n0 = normalizedOrFallback(vertexNormals.at(int(triangle[0])), faceNormal);
-                const ThreeDViewerVec3 n1 = normalizedOrFallback(vertexNormals.at(int(triangle[1])), faceNormal);
-                const ThreeDViewerVec3 n2 = normalizedOrFallback(vertexNormals.at(int(triangle[2])), faceNormal);
+                ThreeDViewerVec3 n0;
+                ThreeDViewerVec3 n1;
+                ThreeDViewerVec3 n2;
+                if (hasNormals) {
+                    n0 = mesh.normals.at(triangle[0]);
+                    n1 = mesh.normals.at(triangle[1]);
+                    n2 = mesh.normals.at(triangle[2]);
+                } else {
+                    const ThreeDViewerVec3 faceNormal = normalizedOrFallback(cross(subtract(v1, v0), subtract(v2, v0)), {0.0, 0.0, 1.0});
+                    n0 = normalizedOrFallback(fallbackNormals.at(int(triangle[0])), faceNormal);
+                    n1 = normalizedOrFallback(fallbackNormals.at(int(triangle[1])), faceNormal);
+                    n2 = normalizedOrFallback(fallbackNormals.at(int(triangle[2])), faceNormal);
+                }
+
                 triangles.push_back(MeshTriangleRender{
                     {p0.screenPosition, p1.screenPosition, p2.screenPosition},
                     {shadedMeshVertexColor(current.meshColorMode, v0, n0, cameraPosition, lightDirection, fillLightDirection, bounds, current.backgroundMode),
@@ -1699,11 +1714,13 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
             }
         }
 
-        std::sort(triangles.begin(), triangles.end(), [](const MeshTriangleRender &left, const MeshTriangleRender &right) {
-            return left.depth > right.depth;
+        QVector<int> sortedIndices(triangles.size());
+        std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+        std::sort(sortedIndices.begin(), sortedIndices.end(), [&triangles](int left, int right) {
+            return triangles.at(left).depth > triangles.at(right).depth;
         });
 
-        meshNode = createMeshNode(triangles);
+        meshNode = createMeshNode(triangles, sortedIndices);
     }
 
     const QSet<quint32> visibleStationIds = visibleCenterlineStationIds(current.sceneModel,

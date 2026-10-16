@@ -365,6 +365,7 @@ ThreeDViewerLoxLoader::Result ThreeDViewerLoxLoader::loadBytes(const QByteArray 
                     }
                     mesh.triangles.push_back(triangle);
                 }
+                mesh.computeNormals();
                 result.scene.meshGroups.push_back(mesh);
             }
             break;

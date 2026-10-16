@@ -1,5 +1,8 @@
 #include "../src/app/three_d_viewer/ThreeDViewerInspectorState.h"
+#include "../src/app/three_d_viewer/ThreeDViewerTab.h"
+#include "../src/core/TherionCentreline.h"
 
+#include <QDir>
 #include <QtTest/QtTest>
 #include <QLocale>
 
@@ -17,6 +20,8 @@ private slots:
     void tracksSceneOverlayVisibility();
     void tracksAutoRotationSettings();
     void tracksCameraSettings();
+    void loadsCentrelineFromThFile();
+    void loadsCentrelineAndScrapsFromTh2File();
 };
 
 void ThreeDViewerInspectorStateTest::tracksFilePathAndSceneMetrics()
@@ -174,6 +179,48 @@ void ThreeDViewerInspectorStateTest::tracksCameraSettings()
 
     state.setCameraFocalLengthMm(0.0);
     QCOMPARE(state.cameraFocalLengthMm(), 10.0);
+}
+
+void ThreeDViewerInspectorStateTest::loadsCentrelineFromThFile()
+{
+    // Test that computeTherionCentreline creates a ThreeDViewerSceneModel compatible with ThreeDViewerInspectorState
+    const QString hpPath = QDir(QStringLiteral(THERION_STUDIO_TEST_FIXTURE_ROOT))
+        .filePath(QStringLiteral("projects/map_editor_regression/real_cave_raster/data/hp.th"));
+
+    const TherionCentrelineResult result = computeTherionCentreline({hpPath}, defaultTherionCentrelineFileReader());
+    QVERIFY(!result.stationPositions.isEmpty());
+
+    ThreeDViewerInspectorState state;
+    state.setFilePath(hpPath);
+    state.setSceneModel(result.scene);
+
+    QCOMPARE(state.filePath(), hpPath);
+    QCOMPARE(state.stationCount(), 10);
+    QCOMPARE(state.shotCount(), 9);
+    QVERIFY(!state.caveLengthText().isEmpty());
+    QVERIFY(!state.caveDepthText().isEmpty());
+}
+
+void ThreeDViewerInspectorStateTest::loadsCentrelineAndScrapsFromTh2File()
+{
+    // Test that opening a .th2 file in ThreeDViewerTab automatically finds the survey and loads both centreline and scrap walls
+    const QString th2Path = QDir(QStringLiteral(THERION_STUDIO_TEST_FIXTURE_ROOT))
+        .filePath(QStringLiteral("projects/map_editor_regression/real_cave_raster/data/clopy01.th2"));
+
+    ThreeDViewerTab tab;
+    QString error;
+    QVERIFY(tab.loadFile(th2Path, &error));
+    QVERIFY(error.isEmpty());
+
+    const ThreeDViewerSceneModel &model = tab.sceneModel();
+    QCOMPARE(model.stations.size(), 10);
+    QCOMPARE(model.shots.size(), 9);
+    QCOMPARE(model.meshGroups.size(), 1);
+
+    // Verify walls mesh is properly triangulated
+    const ThreeDViewerMeshGroup &mesh = model.meshGroups.first();
+    QVERIFY(!mesh.vertices.isEmpty());
+    QVERIFY(!mesh.triangles.isEmpty());
 }
 
 int runThreeDViewerInspectorStateTest(int argc, char **argv)

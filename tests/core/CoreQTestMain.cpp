@@ -28,6 +28,8 @@ int runTherionDocumentParserTest(int argc, char **argv);
 int runTherionXviParserTest(int argc, char **argv);
 int runTherionXviPassageTest(int argc, char **argv);
 int runTherionXviAreaAdjustTest(int argc, char **argv);
+int runTherionCentrelineTest(int argc, char **argv);
+int runTherionScrap3DTest(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -57,5 +59,7 @@ int main(int argc, char **argv)
         {"TherionSourceValidatorFixTest", runTherionSourceValidatorFixTest},
         {"TherionSourceValidatorProjectionTest", runTherionSourceValidatorProjectionTest},
         {"ProjectStructureIndexQTest", runProjectStructureIndexQTest},
-        {"TherionTokenRulesTest", runTherionTokenRulesTest}});
+        {"TherionTokenRulesTest", runTherionTokenRulesTest},
+        {"TherionCentrelineTest", runTherionCentrelineTest},
+        {"TherionScrap3DTest", runTherionScrap3DTest}});
 }

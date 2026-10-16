@@ -23,9 +23,11 @@ public:
 
     bool loadFile(const QString &filePath, QString *errorMessage = nullptr);
     bool reloadFile(QString *errorMessage = nullptr);
+    void setSceneModel(const ThreeDViewerSceneModel &sceneModel, const QString &sourceFilePath = QString());
     void setProjectRootPath(const QString &projectRootPath);
     QString filePath() const;
     QString displayName() const;
+    [[nodiscard]] const ThreeDViewerSceneModel &sceneModel() const;
     bool isDirty() const;
     bool save(QString *errorMessage = nullptr);
     void fitToScene();

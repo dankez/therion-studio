@@ -7,6 +7,8 @@
 #include "ThreeDViewerViewportWidget.h"
 
 #include "../ExportFileName.h"
+#include "../../core/TherionCentreline.h"
+#include "../../core/TherionFileTypes.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -36,30 +38,86 @@ ThreeDViewerTab::ThreeDViewerTab(QWidget *parent)
 
 bool ThreeDViewerTab::loadFile(const QString &filePath, QString *errorMessage)
 {
-    const ThreeDViewerLoxLoader::Result result = loader_.loadFile(filePath);
-    if (!result.ok()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = result.error;
+    const QString suffix = QFileInfo(filePath).suffix().toLower();
+    ThreeDViewerSceneModel model;
+
+    if (suffix == QStringLiteral("lox")) {
+        const ThreeDViewerLoxLoader::Result result = loader_.loadFile(filePath);
+        if (!result.ok()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = result.error;
+            }
+            return false;
         }
-        return false;
+        model = result.scene;
+    } else if (suffix == QStringLiteral("th") || suffix == QStringLiteral("thconfig")) {
+        const TherionCentrelineResult result = computeTherionCentreline({filePath}, defaultTherionCentrelineFileReader());
+        if (result.stationPositions.isEmpty() && !result.diagnostics.isEmpty()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = result.diagnostics.first().message;
+            }
+            return false;
+        }
+        model = result.scene;
+    } else if (suffix == QStringLiteral("th2")) {
+        // Find survey .th or .thconfig in projectRootPath or nearby folders
+        QString surveyPath;
+        QDir dir = QFileInfo(filePath).dir();
+        const QStringList patterns = {QStringLiteral("*.thconfig"), QStringLiteral("*.th")};
+        for (int depth = 0; depth < 3; ++depth) {
+            for (const QString &pattern : patterns) {
+                const auto matches = dir.entryList({pattern}, QDir::Files);
+                if (!matches.isEmpty()) {
+                    surveyPath = dir.filePath(matches.first());
+                    break;
+                }
+            }
+            if (!surveyPath.isEmpty() || !dir.cdUp()) {
+                break;
+            }
+        }
+
+        TherionCentrelineResult result;
+        if (!surveyPath.isEmpty()) {
+            result = computeTherionCentreline({surveyPath}, defaultTherionCentrelineFileReader());
+        }
+
+        bool scrapFound = false;
+        for (const auto &sm : result.scrapModels) {
+            if (sm.filePath == filePath) {
+                scrapFound = true;
+                break;
+            }
+        }
+
+        if (!scrapFound) {
+            QString th2Contents;
+            if (defaultTherionCentrelineFileReader()(filePath, &th2Contents)) {
+                const auto scrapModels = TherionScrap3D::projectTh2File(
+                    filePath, th2Contents, QString(), result.stationPositions,
+                    quint32(result.scene.meshGroups.size()), 0);
+                for (const auto &sm : scrapModels) {
+                    result.scrapModels.append(sm);
+                    if (!sm.meshGroup.vertices.isEmpty()) {
+                        result.scene.meshGroups.append(sm.meshGroup);
+                    }
+                }
+            }
+        }
+        model = result.scene;
+    } else {
+        // Fallback to LOX loader
+        const ThreeDViewerLoxLoader::Result result = loader_.loadFile(filePath);
+        if (!result.ok()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = result.error;
+            }
+            return false;
+        }
+        model = result.scene;
     }
 
-    sceneModel_ = result.scene;
-    if (layerModel_ != nullptr) {
-        layerModel_->setSceneModel(sceneModel_);
-    }
-
-    const QFileInfo fileInfo(filePath);
-    const QString canonicalPath = fileInfo.canonicalFilePath();
-    filePath_ = canonicalPath.isEmpty() ? fileInfo.absoluteFilePath() : canonicalPath;
-    displayName_ = fileInfo.fileName();
-    if (displayName_.isEmpty()) {
-        displayName_ = filePath_;
-    }
-
-    updateSceneSummary();
-    rebuildScene();
-    emit titleChanged();
+    setSceneModel(model, filePath);
     return true;
 }
 
@@ -72,22 +130,29 @@ bool ThreeDViewerTab::reloadFile(QString *errorMessage)
         return false;
     }
 
-    const ThreeDViewerLoxLoader::Result result = loader_.loadFile(filePath_);
-    if (!result.ok()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = result.error;
-        }
-        return false;
-    }
+    return loadFile(filePath_, errorMessage);
+}
 
-    sceneModel_ = result.scene;
+void ThreeDViewerTab::setSceneModel(const ThreeDViewerSceneModel &sceneModel, const QString &sourceFilePath)
+{
+    sceneModel_ = sceneModel;
     if (layerModel_ != nullptr) {
         layerModel_->setSceneModel(sceneModel_);
     }
+
+    if (!sourceFilePath.isEmpty()) {
+        const QFileInfo fileInfo(sourceFilePath);
+        const QString canonicalPath = fileInfo.canonicalFilePath();
+        filePath_ = canonicalPath.isEmpty() ? fileInfo.absoluteFilePath() : canonicalPath;
+        displayName_ = fileInfo.fileName();
+        if (displayName_.isEmpty()) {
+            displayName_ = filePath_;
+        }
+    }
+
     updateSceneSummary();
-    rebuildScene(false);
+    rebuildScene();
     emit titleChanged();
-    return true;
 }
 
 void ThreeDViewerTab::setProjectRootPath(const QString &projectRootPath)
@@ -104,6 +169,11 @@ QString ThreeDViewerTab::filePath() const
 QString ThreeDViewerTab::displayName() const
 {
     return displayName_;
+}
+
+const ThreeDViewerSceneModel &ThreeDViewerTab::sceneModel() const
+{
+    return sceneModel_;
 }
 
 bool ThreeDViewerTab::isDirty() const
