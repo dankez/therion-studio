@@ -52,6 +52,24 @@ constexpr int kMapSceneLineTypeRole = Qt::UserRole + 130;
 // the sibling role so they render with a distinct secondary highlight.
 constexpr int kMapSceneStationScrapRole = Qt::UserRole + 131;
 constexpr int kMapSceneScrapSiblingStationRole = Qt::UserRole + 132;
+// Anchor at the other end of a line control's segment.
+constexpr int kMapSceneSegmentNeighbourVertexRole = Qt::UserRole + 133;
+// Set while a line control is shown for that neighbour anchor, which allows length changes only.
+constexpr int kMapSceneNeighbourControlRole = Qt::UserRole + 134;
+
+inline int mapSceneSegmentNeighbourVertex(const QGraphicsItem *item)
+{
+    const QVariant value = item->data(kMapSceneSegmentNeighbourVertexRole);
+    return value.isValid() ? value.toInt() : -1;
+}
+
+// A neighbour control picked for the selected line point keeps that point selected.
+inline int mapSceneSelectionOwnerVertex(const QGraphicsItem *item)
+{
+    return item->data(kMapSceneNeighbourControlRole).toBool()
+        ? mapSceneSegmentNeighbourVertex(item)
+        : item->data(kMapSceneOwnerVertexRole).toInt();
+}
 
 inline bool isMapSceneWallItem(const QGraphicsItem *item)
 {

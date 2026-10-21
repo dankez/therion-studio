@@ -260,6 +260,7 @@ set(THERION_MAP_EDITOR_QTEST_SUITES
     MapEditorSourceProjectionCacheTest
     MapEditorSvgBackgroundMetadataTest
     MapEditorXviStationSnapLogicTest
+    MapEditorLineControlDirectionTest
     MapEditorUndoArbitrationServiceTest)
 
 set(THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES
@@ -813,6 +814,7 @@ set(THERION_MAP_EDITOR_SOURCES
     src/app/text_editor/map_editor/MapEditorInteractiveDrawLogic.h
     src/app/text_editor/map_editor/MapEditorInputPolicy.cpp
     src/app/text_editor/map_editor/MapEditorInputPolicy.h
+    src/app/text_editor/map_editor/MapEditorLineControlDirection.h
     src/app/text_editor/map_editor/MapEditorMagnifierOverlay.cpp
     src/app/text_editor/map_editor/MapEditorMagnifierOverlay.h
     src/app/text_editor/map_editor/MapEditorPerformanceCounters.h
@@ -1393,6 +1395,7 @@ qt_add_executable(MapEditorLogicQTests
     tests/MapEditorSourceProjectionCacheTest.cpp
     tests/MapEditorSvgBackgroundMetadataTest.cpp
     tests/MapEditorXviStationSnapLogicTest.cpp
+    tests/MapEditorLineControlDirectionTest.cpp
     tests/MapEditorUndoArbitrationServiceTest.cpp
     src/app/text_editor/map_editor/MapEditorAreaReferenceResolver.cpp
     src/app/text_editor/map_editor/MapEditorAreaReferenceResolver.h
@@ -1402,6 +1405,7 @@ qt_add_executable(MapEditorLogicQTests
     src/app/text_editor/map_editor/MapEditorInteractiveDrawLogic.h
     src/app/text_editor/map_editor/MapEditorInputPolicy.cpp
     src/app/text_editor/map_editor/MapEditorInputPolicy.h
+    src/app/text_editor/map_editor/MapEditorLineControlDirection.h
     src/app/text_editor/map_editor/MapEditorSvgBackgroundMetadata.cpp
     src/app/text_editor/map_editor/MapEditorSvgBackgroundMetadata.h
     src/app/text_editor/map_editor/MapEditorXviStationSnapLogic.cpp
@@ -1949,6 +1953,12 @@ therion_add_map_editor_ui_test(MapEditorViewportInputControllerTest
     tests/MapEditorViewportInputControllerTest.cpp
     "MapEditorViewportInputControllerResources")
 
+therion_add_map_editor_ui_test(MapEditorLineNeighbourControlTest
+    tests/MapEditorLineNeighbourControlTest.cpp
+    "MapEditorLineNeighbourControlResources")
+target_link_libraries(MapEditorLineNeighbourControlTest PRIVATE
+    Qt6::Test)
+
 therion_add_map_editor_ui_test(MapEditorViewportTabletInputTest
     tests/MapEditorViewportTabletInputTest.cpp
     "MapEditorViewportTabletInputResources")
@@ -2063,6 +2073,7 @@ set(THERION_UI_TEST_TARGETS
     MapEditorValidationFixRefreshTest
     MapEditorXviBackgroundItemTest
     MapEditorViewportInputControllerTest
+    MapEditorLineNeighbourControlTest
     MapEditorViewportTabletInputTest)
 
 set(THERION_UI_QTEST_AGGREGATE_TARGETS
