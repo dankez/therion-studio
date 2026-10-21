@@ -935,6 +935,9 @@ void showSelectionContextMenuAtViewportPosition(MapEditorViewportInputContext &c
     }
 
     if (!selectMapHitItemForContextMenu(context, viewportPosition)) {
+        if (context.showEmptyCanvasContextMenu != nullptr) {
+            context.showEmptyCanvasContextMenu(globalPosition);
+        }
         return;
     }
     context.showSelectionContextMenu(globalPosition);

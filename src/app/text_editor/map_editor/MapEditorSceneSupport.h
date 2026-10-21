@@ -56,6 +56,8 @@ constexpr int kMapSceneScrapSiblingStationRole = Qt::UserRole + 132;
 constexpr int kMapSceneSegmentNeighbourVertexRole = Qt::UserRole + 133;
 // Set while a line control is shown for that neighbour anchor, which allows length changes only.
 constexpr int kMapSceneNeighbourControlRole = Qt::UserRole + 134;
+// Accepted mouse buttons of a faded item, kept while picking is turned off.
+constexpr int kMapSceneFadedAcceptedButtonsRole = Qt::UserRole + 135;
 
 inline int mapSceneSegmentNeighbourVertex(const QGraphicsItem *item)
 {

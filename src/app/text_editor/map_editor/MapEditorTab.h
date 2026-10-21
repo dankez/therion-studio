@@ -74,6 +74,8 @@ namespace TherionStudio
 struct TherionParsedLine;
 enum class DraftGeometryKind;
 enum class TextEditorSourceTransactionResult;
+enum class MapEditorObjectVisibility;
+enum class MapEditorScrapVisibilityTarget;
 }
 
 namespace TherionStudio
@@ -270,6 +272,17 @@ public:
     {
         const QGraphicsPixmapItem *item = backgroundLayerItemAt(index);
         return item != nullptr ? item->sceneBoundingRect() : QRectF();
+    }
+    void setMapScrapVisibilityForTest(int lineNumber,
+                                      MapEditorScrapVisibilityTarget target,
+                                      MapEditorObjectVisibility visibility)
+    {
+        setMapScrapVisibility(lineNumber, target, visibility);
+    }
+    void showAllMapObjectsForTest() { showAllMapObjects(); }
+    void showEmptyMapCanvasContextMenuForTest(const QPoint &globalPosition)
+    {
+        showEmptyMapCanvasContextMenu(globalPosition);
     }
 #endif
     void removeSelectedBackgroundLayer();
@@ -724,6 +737,11 @@ private:
     void showAllObjects();
     void selectNextObject();
     void selectPreviousObject();
+    void addMapScrapVisibilityMenus(QMenu *menu, int lineNumber);
+    void showEmptyMapCanvasContextMenu(const QPoint &globalPosition);
+    void showInspectorObjectContextMenu(const QPoint &position);
+    void setMapScrapVisibility(int lineNumber, MapEditorScrapVisibilityTarget target, MapEditorObjectVisibility visibility);
+    void showAllMapObjects();
     void configureInspectorBackgroundLayerTreeColumns();
     void handleInspectorBackgroundLayerSelectionChanged(const QModelIndex &current);
     void handleInspectorBackgroundLayerClicked(const QModelIndex &index);
@@ -787,6 +805,7 @@ private:
     void handleLineReversedToggled(bool checked);
     void handleObjectClipDisabledToggled(bool checked);
     void handlePointAlignChanged();
+    QMenu *createMapContextMenu();
     void showMapSelectionContextMenu(const QPoint &globalPosition);
 
     QWidget *workspaceModeRow_ = nullptr;
@@ -868,6 +887,7 @@ private:
     QGraphicsPathItem *backgroundPivotMarker_ = nullptr;
     bool updatingMapInspectorObjectSelection_ = false;
     QSet<int> hiddenInspectorObjectLines_;
+    QSet<int> fadedInspectorObjectLines_;
     QPersistentModelIndex inspectorObjectPressedNameIndex_;
     bool inspectorObjectPressedWasSelected_ = false;
     QPointer<QWidget> inspectorObjectDropIndicator_;

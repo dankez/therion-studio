@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MapEditorInspectorObjectContext.h"
+#include "MapEditorScrapVisibilityMenu.h"
 
 #include <QMap>
 #include <QModelIndex>
@@ -30,10 +31,15 @@ public:
     void showAllObjects();
     void selectNextObject(bool forward = true);
     void selectPreviousObject();
+    [[nodiscard]] int inspectorObjectLineNumberAt(const QPoint &viewportPosition) const;
+    [[nodiscard]] MapEditorScrapVisibilityMenuState scrapVisibilityMenuState(int lineNumber) const;
+    void setScrapVisibility(int lineNumber, MapEditorScrapVisibilityTarget target, MapEditorObjectVisibility visibility);
+    [[nodiscard]] bool allObjectsShown() const;
 
 private:
     QString tr(const char *text) const;
     void rebuildInspectorObjectLineIndex() const;
+    [[nodiscard]] MapEditorObjectVisibilityLines visibilityLines() const;
     void syncInspectorObjectSelectionToLine(int lineNumber, bool scrollToSelection, bool expandAncestors);
     QSet<int> collapsedScrapLineNumbers() const;
     void restoreInspectorObjectExpansion(const QSet<int> &collapsedScrapLines);

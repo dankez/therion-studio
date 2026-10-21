@@ -7,6 +7,7 @@
 #include "MapEditorObjectDeletePlanner.h"
 #include "MapEditorObjectMovePlanner.h"
 #include "MapEditorSceneSupport.h"
+#include "MapEditorScrapVisibility.h"
 #include "../../../core/ProjectStructureIndex.h"
 #include "../../../core/TherionDocumentParser.h"
 #include "../../../core/TherionSourceLogicalDocument.h"
@@ -41,6 +42,21 @@ constexpr int kInspectorObjectDragColumn = 1;
 constexpr int kInspectorObjectVisibilityColumn = 2;
 constexpr int kInspectorObjectDeleteColumn = 3;
 constexpr int kInspectorObjectColumnCount = 4;
+
+// Faded items cannot be picked or hovered; their accepted mouse buttons are kept in a scene data role for restoring.
+void applyFadedItemPresentation(QGraphicsItem *item, bool faded)
+{
+    const QVariant storedButtons = item->data(kMapSceneFadedAcceptedButtonsRole);
+    if (faded && !storedButtons.isValid()) {
+        item->setData(kMapSceneFadedAcceptedButtonsRole, static_cast<int>(item->acceptedMouseButtons()));
+        item->setAcceptedMouseButtons(Qt::NoButton);
+        item->setOpacity(kMapEditorFadedObjectOpacity);
+    } else if (!faded && storedButtons.isValid()) {
+        item->setAcceptedMouseButtons(Qt::MouseButtons(storedButtons.toInt()));
+        item->setData(kMapSceneFadedAcceptedButtonsRole, QVariant());
+        item->setOpacity(1.0);
+    }
+}
 
 bool isScrapCategory(const QString &category)
 {
@@ -238,9 +254,20 @@ void MapEditorInspectorObjectController::rebuildInspectorObjectsTree()
         visibilityItem->setData(entry.lineNumber, kInspectorSourceLineRole);
         visibilityItem->setData(entry.category, kInspectorObjectCategoryRole);
         if (entry.lineNumber > 0) {
-            const bool visible = !context_.hiddenObjectLines->contains(entry.lineNumber);
-            visibilityItem->setIcon(inspectorActionIcon(visible ? QStringLiteral("eye") : QStringLiteral("eye-off")));
-            visibilityItem->setToolTip(visible ? tr("Hide object") : tr("Show object"));
+            switch (visibilityLines().visibility(entry.lineNumber)) {
+            case MapEditorObjectVisibility::Shown:
+                visibilityItem->setIcon(inspectorActionIcon(QStringLiteral("eye")));
+                visibilityItem->setToolTip(tr("Fade object"));
+                break;
+            case MapEditorObjectVisibility::Faded:
+                visibilityItem->setIcon(inspectorDimmedActionIcon(QStringLiteral("eye")));
+                visibilityItem->setToolTip(tr("Hide object"));
+                break;
+            case MapEditorObjectVisibility::Hidden:
+                visibilityItem->setIcon(inspectorActionIcon(QStringLiteral("eye-off")));
+                visibilityItem->setToolTip(tr("Show object"));
+                break;
+            }
         }
 
         auto *deleteItem = new QStandardItem;
@@ -272,13 +299,7 @@ void MapEditorInspectorObjectController::rebuildInspectorObjectsTree()
         parentStack.append(entryItem);
     }
     inspectorObjectLineIndexValid_ = true;
-    for (auto it = context_.hiddenObjectLines->begin(); it != context_.hiddenObjectLines->end();) {
-        if (!currentObjectLines.contains(*it)) {
-            it = context_.hiddenObjectLines->erase(it);
-        } else {
-            ++it;
-        }
-    }
+    visibilityLines().retainOnly(currentObjectLines);
 
     applyInspectorObjectVisibility();
     if (autoCollapseExpandScraps) {
@@ -570,8 +591,9 @@ void MapEditorInspectorObjectController::handleInspectorObjectClicked(const QMod
             return;
         }
         const auto postDeleteHook = [this, deletePlan]() {
+            MapEditorObjectVisibilityLines visibility = visibilityLines();
             for (int removedLineNumber : deletePlan.removedLineNumbers) {
-                context_.hiddenObjectLines->remove(removedLineNumber);
+                visibility.remove(removedLineNumber);
             }
             *context_.lastClickedLineNumber = 0;
         };
@@ -621,14 +643,10 @@ void MapEditorInspectorObjectController::handleInspectorObjectClicked(const QMod
         return;
     }
 
-    const bool shouldShow = context_.hiddenObjectLines->contains(lineNumber);
-    for (int sourceLine : subtreeLineNumbers) {
-        if (shouldShow) {
-            context_.hiddenObjectLines->remove(sourceLine);
-        } else {
-            context_.hiddenObjectLines->insert(sourceLine);
-        }
-    }
+    MapEditorObjectVisibilityLines visibility = visibilityLines();
+    const MapEditorObjectVisibility nextVisibility = nextMapEditorObjectVisibility(visibility.visibility(lineNumber));
+    const bool shouldShow = nextVisibility == MapEditorObjectVisibility::Shown;
+    visibility.setVisibility(subtreeLineNumbers, nextVisibility);
 
     rebuildInspectorObjectsTree();
     applyInspectorObjectVisibility();
@@ -688,7 +706,7 @@ bool MapEditorInspectorObjectController::moveInspectorObject(const QModelIndex &
         return false;
     }
     const auto postMoveHook = [this, movePlan]() {
-        context_.hiddenObjectLines->clear();
+        visibilityLines().clear();
         context_.textEditor->goToLine(movePlan.insertBeforeLineAfterRemoval);
         context_.syncMapSelectionFromTextCursor(movePlan.insertBeforeLineAfterRemoval,
                                                 context_.textEditor->currentColumnNumber());
@@ -741,15 +759,16 @@ void MapEditorInspectorObjectController::applyInspectorObjectVisibility()
             continue;
         }
 
-        const bool hidden = context_.hiddenObjectLines->contains(lineNumber);
+        const MapEditorObjectVisibility visibility = visibilityLines().visibility(lineNumber);
         if (item->data(kMapSceneSelectionGatedRole).toBool()) {
-            if (hidden) {
+            if (visibility == MapEditorObjectVisibility::Hidden) {
                 item->setVisible(false);
             }
             continue;
         }
 
-        item->setVisible(!hidden);
+        item->setVisible(visibility != MapEditorObjectVisibility::Hidden);
+        applyFadedItemPresentation(item, visibility == MapEditorObjectVisibility::Faded);
     }
 
     selectionSignals.unblock();
@@ -799,11 +818,7 @@ void MapEditorInspectorObjectController::hideAllObjects()
 
 void MapEditorInspectorObjectController::showAllObjects()
 {
-    if (context_.hiddenObjectLines == nullptr) {
-        return;
-    }
-
-    context_.hiddenObjectLines->clear();
+    visibilityLines().clear();
     rebuildInspectorObjectsTree();
 }
 
@@ -1010,6 +1025,68 @@ void MapEditorInspectorObjectController::selectNextObject(bool forward)
     if (context_.refreshObjectDetailsPanel) {
         context_.refreshObjectDetailsPanel();
     }
+}
+
+int MapEditorInspectorObjectController::inspectorObjectLineNumberAt(const QPoint &viewportPosition) const
+{
+    if (context_.objectsTree == nullptr) {
+        return 0;
+    }
+    return context_.objectsTree->indexAt(viewportPosition).data(kInspectorSourceLineRole).toInt();
+}
+
+MapEditorScrapVisibilityMenuState MapEditorInspectorObjectController::scrapVisibilityMenuState(int lineNumber) const
+{
+    MapEditorScrapVisibilityMenuState state;
+    if (!context_.logicalSource.geometryProjectionForCurrentDocument) {
+        return state;
+    }
+
+    const QVector<MapEditorScrapObjectLines> scraps =
+        mapEditorScrapObjectLines(context_.logicalSource.geometryProjectionForCurrentDocument());
+    const int scrapLineNumber = mapEditorScrapLineForLine(scraps, lineNumber);
+    if (scrapLineNumber <= 0) {
+        return state;
+    }
+
+    const MapEditorObjectVisibilityLines visibility = visibilityLines();
+    state.inScrap = true;
+    state.hasOtherScraps = mapEditorHasOtherScraps(scraps, scrapLineNumber);
+    state.thisScrap =
+        mapEditorScrapsVisibility(visibility, scraps, scrapLineNumber, MapEditorScrapVisibilityTarget::ThisScrap);
+    state.otherScraps =
+        mapEditorScrapsVisibility(visibility, scraps, scrapLineNumber, MapEditorScrapVisibilityTarget::OtherScraps);
+    return state;
+}
+
+void MapEditorInspectorObjectController::setScrapVisibility(int lineNumber,
+                                                            MapEditorScrapVisibilityTarget target,
+                                                            MapEditorObjectVisibility visibility)
+{
+    if (!context_.logicalSource.geometryProjectionForCurrentDocument) {
+        return;
+    }
+
+    const QVector<MapEditorScrapObjectLines> scraps =
+        mapEditorScrapObjectLines(context_.logicalSource.geometryProjectionForCurrentDocument());
+    const int scrapLineNumber = mapEditorScrapLineForLine(scraps, lineNumber);
+    if (scrapLineNumber <= 0) {
+        return;
+    }
+
+    MapEditorObjectVisibilityLines visibilityState = visibilityLines();
+    setMapEditorScrapsVisibility(visibilityState, scraps, scrapLineNumber, target, visibility);
+    rebuildInspectorObjectsTree();
+}
+
+bool MapEditorInspectorObjectController::allObjectsShown() const
+{
+    return visibilityLines().allShown();
+}
+
+MapEditorObjectVisibilityLines MapEditorInspectorObjectController::visibilityLines() const
+{
+    return MapEditorObjectVisibilityLines(context_.hiddenObjectLines, context_.fadedObjectLines);
 }
 
 QSet<int> MapEditorInspectorObjectController::collapsedScrapLineNumbers() const

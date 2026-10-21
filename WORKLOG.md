@@ -226,6 +226,13 @@ Active planning only. Completed history belongs in archive files. Stable archite
 - Keep problem reporting centralized in the Validation panel while Structure remains an orientation/navigation view.
 - Prioritize regression coverage for any namespace, duplicate-identifier, reference-resolution, or validation-fix change.
 
+### Map Scrap Fade
+
+- `feature/map-scrap-fade-and-move-to` (`plans/MAP_SCRAP_FADE_PLAN.md`): objects and whole scraps can be shown, faded or hidden
+  from the Objects eye icon and from `This Scrap` / `Other Scraps` right-click submenus on the canvas and the Objects
+  list; empty canvas offers `Show All Scraps` while anything is faded or hidden. Needs a manual pass in the running app.
+  Follow-up: `Move to Scrap` as the next commit on the same branch.
+
 ### Map Input And Partial Refresh
 
 - Line point smoothness (GitHub #36, #48; branch `fix/line-point-smooth`): smoothness follows Therion's auto rule and
