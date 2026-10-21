@@ -548,6 +548,24 @@ void smoothLineVertexControlHandles(MapGeometryFeature::TH2LineVertex *vertex)
     vertex->outgoingControl = anchor + (unit * outgoingLength);
 }
 
+// Makes the point smooth (handles lined up) or a corner (handles removed, smooth off).
+void setLineVertexSmooth(QVector<MapGeometryFeature::TH2LineVertex> *vertices, int ownerIndex, bool closed, bool smooth)
+{
+    MapGeometryFeature::TH2LineVertex &target = (*vertices)[ownerIndex];
+    if (smooth) {
+        ensureLineVertexControlHandles(vertices, ownerIndex, closed);
+        smoothLineVertexControlHandles(&target);
+        // Lined-up handles are smooth under auto; only an explicit off row would keep a corner.
+        if (target.smoothRow == Th2LinePointSmooth::Off) {
+            target.smoothRow.reset();
+        }
+        return;
+    }
+    target.incomingControl.reset();
+    target.outgoingControl.reset();
+    target.smoothRow = Th2LinePointSmooth::Off;
+}
+
 MapEditableGeometryVertexItem *findGeometryVertexItem(QGraphicsScene *scene,
                                                       int lineNumber,
                                                       int sourceVertexIndex,
@@ -2105,14 +2123,7 @@ bool MapEditorCanvasEditController::toggleLineVertexSmoothFromSelection()
 
     QVector<MapGeometryFeature::TH2LineVertex> editedVertices = lineFeature->lineVertices;
     MapGeometryFeature::TH2LineVertex &target = editedVertices[ownerIndex];
-    target.isSmooth = !target.isSmooth;
-    if (target.isSmooth) {
-        ensureLineVertexControlHandles(&editedVertices, ownerIndex, lineFeature->closed);
-        smoothLineVertexControlHandles(&target);
-    } else {
-        target.incomingControl.reset();
-        target.outgoingControl.reset();
-    }
+    setLineVertexSmooth(&editedVertices, ownerIndex, lineFeature->closed, !lineVertexIsSmooth(target));
 
     const QStringList coordinateRows = coordinateRowsForLineVertices(editedVertices, lineFeature->closed);
     QString afterText;
@@ -2137,7 +2148,7 @@ bool MapEditorCanvasEditController::toggleLineVertexSmoothFromSelection()
                                  TextEditorSourceSelectionRestorePolicy::CustomHook,
                                  std::move(selectionRestoreHook)));
 
-    (*context_.toolbarStatusNote) = target.isSmooth
+    (*context_.toolbarStatusNote) = lineVertexIsSmooth(target)
         ? tr("Line vertex %1 on source line %2 set to smooth.").arg(ownerIndex + 1).arg(lineNumber)
         : tr("Line vertex %1 on source line %2 set to corner (smooth off).").arg(ownerIndex + 1).arg(lineNumber);
     context_.refreshToolbarSummary();
@@ -2173,19 +2184,12 @@ bool MapEditorCanvasEditController::setLineVertexSmoothForSelection(bool smooth)
 
     QVector<MapGeometryFeature::TH2LineVertex> editedVertices = lineFeature->lineVertices;
     MapGeometryFeature::TH2LineVertex &target = editedVertices[ownerIndex];
-    if (target.isSmooth == smooth
+    if (lineVertexIsSmooth(target) == smooth
         && (!smooth || (target.incomingControl.has_value() && target.outgoingControl.has_value()))) {
         return true;
     }
 
-    target.isSmooth = smooth;
-    if (target.isSmooth) {
-        ensureLineVertexControlHandles(&editedVertices, ownerIndex, lineFeature->closed);
-        smoothLineVertexControlHandles(&target);
-    } else {
-        target.incomingControl.reset();
-        target.outgoingControl.reset();
-    }
+    setLineVertexSmooth(&editedVertices, ownerIndex, lineFeature->closed, smooth);
 
     const QStringList coordinateRows = coordinateRowsForLineVertices(editedVertices, lineFeature->closed);
     QString afterText;
@@ -2210,7 +2214,7 @@ bool MapEditorCanvasEditController::setLineVertexSmoothForSelection(bool smooth)
                                  TextEditorSourceSelectionRestorePolicy::CustomHook,
                                  std::move(selectionRestoreHook)));
 
-    (*context_.toolbarStatusNote) = target.isSmooth
+    (*context_.toolbarStatusNote) = lineVertexIsSmooth(target)
         ? tr("Line vertex %1 on source line %2 set to smooth.").arg(ownerIndex + 1).arg(lineNumber)
         : tr("Line vertex %1 on source line %2 set to corner (smooth off).").arg(ownerIndex + 1).arg(lineNumber);
     context_.refreshToolbarSummary();
@@ -2246,7 +2250,7 @@ bool MapEditorCanvasEditController::setLineVertexControlHandleForSelection(bool 
 
     QVector<MapGeometryFeature::TH2LineVertex> editedVertices = lineFeature->lineVertices;
     MapGeometryFeature::TH2LineVertex &target = editedVertices[ownerIndex];
-    const bool smoothWasActive = target.isSmooth
+    const bool smoothWasActive = lineVertexIsSmooth(target)
         && target.incomingControl.has_value()
         && target.outgoingControl.has_value();
     std::optional<QPointF> &control = incoming ? target.incomingControl : target.outgoingControl;
@@ -2263,11 +2267,11 @@ bool MapEditorCanvasEditController::setLineVertexControlHandleForSelection(bool 
             ensureLineVertexControlHandles(&editedVertices, ownerIndex, lineFeature->closed);
             smoothLineVertexControlHandles(&target);
         } else {
-            target.isSmooth = false;
+            target.smoothRow = Th2LinePointSmooth::Off;
         }
     } else {
         control.reset();
-        target.isSmooth = false;
+        target.smoothRow = Th2LinePointSmooth::Off;
     }
 
     const QStringList coordinateRows = coordinateRowsForLineVertices(editedVertices, lineFeature->closed);
