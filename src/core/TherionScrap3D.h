@@ -4,6 +4,7 @@
 #include "Th2GeometryProjection.h"
 
 #include <QPointF>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -41,6 +42,7 @@ struct TherionScrapTransform
     double maxResidual = 0.0;
     int anchorCount = 0;
     int matchedAnchorCount = 0;
+    bool approximate = false;
 
     [[nodiscard]] QPointF transformPoint(const QPointF &scrapPoint) const;
     [[nodiscard]] double interpolateZ(const QPointF &scrapPoint,
@@ -52,10 +54,39 @@ struct TherionScrap3DModel
     QString scrapId;
     QString projection;
     QString filePath;
+    QString surveyPath;
     TherionScrapTransform transform;
     QVector<TherionScrapAnchor> anchors;
+    QStringList diagnostics;
     ThreeDViewerMeshGroup meshGroup;
     QVector<QVector<ThreeDViewerVec3>> wallPolylines;
+    QVector<ThreeDViewerScrapPolyline> linework;
+    QVector<ThreeDViewerScrapPoint> pointFeatures;
+};
+
+
+struct TherionScrapJoin
+{
+    QString firstReference;
+    QString secondReference;
+    QString surveyPath;
+    QString filePath;
+    int lineNumber = 0;
+    int count = 1;
+};
+
+struct TherionScrapJoinDiagnostic
+{
+    QString filePath;
+    int lineNumber = 0;
+    QString message;
+};
+
+struct TherionScrap3DOptions
+{
+    QSet<int> hiddenObjectLines;
+    bool wallsOnly = false;
+    bool objectsOnly = false;
 };
 
 class TherionScrap3D
@@ -82,7 +113,8 @@ public:
         const QString &scrapSurveyPath,
         const QHash<QString, ThreeDViewerVec3> &stationPositions,
         quint32 meshId = 0,
-        quint32 surveyId = 0);
+        quint32 surveyId = 0,
+        const TherionScrap3DOptions &options = {});
 
     // Parses a .th2 file and projects all plan scraps in it onto the centreline
     [[nodiscard]] static QVector<TherionScrap3DModel> projectTh2File(
@@ -91,7 +123,13 @@ public:
         const QString &surveyPath,
         const QHash<QString, ThreeDViewerVec3> &stationPositions,
         quint32 startMeshId = 0,
-        quint32 surveyId = 0);
+        quint32 surveyId = 0,
+        const TherionScrap3DOptions &options = {});
+
+
+    [[nodiscard]] static QVector<TherionScrapJoinDiagnostic> applyJoins(
+        QVector<TherionScrap3DModel> *models,
+        const QVector<TherionScrapJoin> &joins);
 };
 
 } // namespace TherionStudio

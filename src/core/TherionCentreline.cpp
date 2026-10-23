@@ -352,6 +352,26 @@ void CentrelineParser::handleCommand(const QStringList &tokens, int lineNumber)
         groupStack_.clear();
     } else if (directive == QLatin1String("input") && tokens.size() > 1) {
         handleInput(tokens.at(1), lineNumber);
+    } else if (directive == QLatin1String("join") && tokens.size() >= 3) {
+        int joinCount = 1;
+        for (int index = 1; index + 1 < tokens.size(); ++index) {
+            if (tokens.at(index) == QLatin1String("-count")) {
+                bool countOk = false;
+                const int count = tokens.at(index + 1).toInt(&countOk);
+                if (countOk && count > 0) {
+                    joinCount = count;
+                }
+                break;
+            }
+        }
+        for (int index = 1; index + 1 < tokens.size(); index += 2) {
+            if (tokens.at(index).startsWith(QLatin1Char('-'))
+                || tokens.at(index + 1).startsWith(QLatin1Char('-'))) {
+                break;
+            }
+            observations.joins.append({tokens.at(index), tokens.at(index + 1), currentSurveyPath(),
+                                       currentFile_, lineNumber, joinCount});
+        }
     } else if (directive == QLatin1String("equate") || directive == QLatin1String("fix")) {
         handleCentrelineCommand(directive, tokens, lineNumber);
     }
@@ -744,19 +764,31 @@ TherionCentrelineResult computeTherionCentreline(const QStringList &entryFilePat
     const TherionCentrelineObservations obs = parseTherionCentreline(entryFilePaths, readFile);
     TherionCentrelineResult result = solveTherionCentreline(obs);
 
-    // Project referenced .th2 scraps into 3D meshes
+    QVector<TherionScrap3DModel> scrapModels;
+    quint32 nextMeshId = quint32(result.scene.meshGroups.size());
     for (const auto &ref : obs.th2References) {
         QString th2Contents;
-        if (readFile(ref.filePath, &th2Contents)) {
-            const auto scrapModels = TherionScrap3D::projectTh2File(
-                ref.filePath, th2Contents, ref.surveyPath, result.stationPositions,
-                quint32(result.scene.meshGroups.size()), 0);
-            for (const auto &sm : scrapModels) {
-                result.scrapModels.append(sm);
-                if (!sm.meshGroup.vertices.isEmpty()) {
-                    result.scene.meshGroups.append(sm.meshGroup);
-                }
-            }
+        if (!readFile(ref.filePath, &th2Contents)) {
+            continue;
+        }
+        const auto models = TherionScrap3D::projectTh2File(
+            ref.filePath, th2Contents, ref.surveyPath, result.stationPositions, nextMeshId, 0);
+        nextMeshId += quint32(models.size());
+        scrapModels += models;
+    }
+
+    const QVector<TherionScrapJoinDiagnostic> joinDiagnostics =
+        TherionScrap3D::applyJoins(&scrapModels, obs.joins);
+    for (const TherionScrapJoinDiagnostic &diagnostic : joinDiagnostics) {
+        result.diagnostics.append({diagnostic.filePath, diagnostic.lineNumber, diagnostic.message});
+    }
+
+    for (const TherionScrap3DModel &scrap : scrapModels) {
+        result.scrapModels.append(scrap);
+        result.scene.scrapLinework += scrap.linework;
+        result.scene.scrapPoints += scrap.pointFeatures;
+        if (!scrap.meshGroup.vertices.isEmpty() && !scrap.meshGroup.triangles.isEmpty()) {
+            result.scene.meshGroups.append(scrap.meshGroup);
         }
     }
 

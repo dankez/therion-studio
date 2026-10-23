@@ -39,6 +39,14 @@ ThreeDViewerBounds ThreeDViewerSceneModel::bounds() const
             result.include(vertex);
         }
     }
+    for (const ThreeDViewerScrapPolyline &line : scrapLinework) {
+        for (const ThreeDViewerVec3 &point : line.points) {
+            result.include(point);
+        }
+    }
+    for (const ThreeDViewerScrapPoint &point : scrapPoints) {
+        result.include(point.position);
+    }
 
     for (const ThreeDViewerSurface &surface : surfaces) {
         if (surface.width == 0 || surface.height == 0) {
@@ -64,7 +72,8 @@ ThreeDViewerBounds ThreeDViewerSceneModel::bounds() const
 
 bool ThreeDViewerSceneModel::isEmpty() const
 {
-    return surveys.isEmpty() && stations.isEmpty() && shots.isEmpty() && meshGroups.isEmpty() && surfaces.isEmpty();
+    return surveys.isEmpty() && stations.isEmpty() && shots.isEmpty() && meshGroups.isEmpty()
+        && scrapLinework.isEmpty() && scrapPoints.isEmpty() && surfaces.isEmpty();
 }
 
 QString ThreeDViewerSceneModel::surveyPathForId(quint32 surveyId) const

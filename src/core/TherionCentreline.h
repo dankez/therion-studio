@@ -62,6 +62,7 @@ struct TherionCentrelineObservations
     QStringList stationKeysWithoutGeometry; // nosurvey-only stations
     QStringList files;
     QVector<TherionCentrelineTh2Reference> th2References;
+    QVector<TherionScrapJoin> joins;
     QVector<TherionCentrelineDiagnostic> diagnostics;
 };
 

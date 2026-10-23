@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QTemporaryDir>
 #include <QtTest/QtTest>
 
 #include <cmath>
@@ -17,10 +18,56 @@ private slots:
     void parseScaleOption();
     void fitTransformWithTwoAnchors();
     void fitTransformSingleAnchorFallback();
+    void fitTransformWithoutAnchorsIsInvalid();
     void resolveStationKey();
     void projectScrapRealCaveFixture();
+    void projectsLinesAreasAndPointsForATh2Scrap();
+    void projectsFoldedSheetAndPreservesTh2Linework();
+    void keepsGeometrySeparatedBetweenScraps();
+    void filtersHiddenScrapsAndWallsBeforeProjection();
+    void projectsVisibleObjectsWithoutAnySurface();
+    void objectsFollowTriangulatedWallSurface();
+    void joinedWallsAcrossScrapsFormOneSurface();
     void integratedComputeWithTh2();
 };
+
+void TherionScrap3DTest::projectsVisibleObjectsWithoutAnySurface()
+{
+    const QString text = QStringLiteral(
+        "scrap passage -projection plan\n"
+        "point 0 0 station -name A\npoint 10 0 station -name B\n"
+        "line wall -close on\n0 0\n10 0\n10 10\n0 10\nendline\n"
+        "line border\n0 2\n10 2\nendline\n"
+        "line slope\n0 3\n10 3\nendline\n"
+        "point 5 5 stalactite\npoint 6 6 stalagmite\n"
+        "line border:invisible -id water-border -close on\n1000 1000\n1010 1000\n1010 1010\nendline\n"
+        "area water\nwater-border\nendarea\n"
+        "line wall:invisible\n2000 2000\n2010 2000\nendline\n"
+        "line wall -subtype invisible\n3000 3000\n3010 3000\nendline\nendscrap\n");
+    const auto projection = Th2GeometryProjection::fromText(text);
+    const QHash<QString, ThreeDViewerVec3> stations{{QStringLiteral("A"), {0, 0, 100}},
+                                                   {QStringLiteral("B"), {10, 0, 110}}};
+    const auto model = TherionScrap3D::projectScrap(
+        projection, QStringLiteral("passage"), {}, stations, 0, 0, {{}, false, true});
+    QVERIFY(model.meshGroup.vertices.isEmpty());
+    QVERIFY(model.meshGroup.triangles.isEmpty());
+    QCOMPARE(model.linework.size(), 2);
+    QCOMPARE(model.wallPolylines.size(), 1);
+    QCOMPARE(model.linework.at(0).type, QStringLiteral("wall"));
+    QCOMPARE(model.linework.at(1).type, QStringLiteral("slope"));
+    QCOMPARE(model.pointFeatures.size(), 2);
+    for (const auto &point : model.pointFeatures) {
+        QVERIFY(point.position.z >= 100 && point.position.z <= 110);
+    }
+    const auto filtered = TherionScrap3D::projectScrap(
+        projection, QStringLiteral("passage"), {}, stations, 0, 0, {{10, 18, 2}, false, true});
+    QCOMPARE(filtered.linework.size(), 2);
+    QCOMPARE(filtered.pointFeatures.size(), 1);
+    QCOMPARE(filtered.transform.matchedAnchorCount, 2);
+    const auto hidden = TherionScrap3D::projectTh2File(
+        {}, text, {}, stations, 0, 0, {{1}, false, true});
+    QVERIFY(hidden.isEmpty());
+}
 
 void TherionScrap3DTest::parseScaleOption()
 {
@@ -83,6 +130,7 @@ void TherionScrap3DTest::fitTransformWithTwoAnchors()
 
     const TherionScrapTransform transform = TherionScrap3D::fitTransform({a1, a2});
     QVERIFY(transform.valid);
+    QVERIFY(!transform.approximate);
     QCOMPARE(transform.matchedAnchorCount, 2);
     QVERIFY(std::abs(transform.scale - 0.0254) < 1e-4);
     QVERIFY(std::abs(transform.rotation - (M_PI / 2.0)) < 1e-4);
@@ -117,6 +165,7 @@ void TherionScrap3DTest::fitTransformSingleAnchorFallback()
 
     const TherionScrapTransform transform = TherionScrap3D::fitTransform({a1}, scale);
     QVERIFY(transform.valid);
+    QVERIFY(transform.approximate);
     QCOMPARE(transform.matchedAnchorCount, 1);
     QCOMPARE(transform.scale, 0.05);
     QCOMPARE(transform.rotation, 0.0);
@@ -124,6 +173,19 @@ void TherionScrap3DTest::fitTransformSingleAnchorFallback()
     const QPointF p1_fit = transform.transformPoint(a1.scrapPoint);
     QCOMPARE(p1_fit.x(), 50.0);
     QCOMPARE(p1_fit.y(), 60.0);
+}
+
+void TherionScrap3DTest::fitTransformWithoutAnchorsIsInvalid()
+{
+    TherionScrapScale scale;
+    scale.valid = true;
+    scale.metersPerPoint = 0.0254;
+
+    const TherionScrapTransform transform = TherionScrap3D::fitTransform({}, scale);
+
+    QVERIFY(!transform.valid);
+    QCOMPARE(transform.matchedAnchorCount, 0);
+    QVERIFY(!transform.approximate);
 }
 
 void TherionScrap3DTest::resolveStationKey()
@@ -188,17 +250,288 @@ void TherionScrap3DTest::projectScrapRealCaveFixture()
     // Verify wall polylines were extracted
     QVERIFY(!scrap.wallPolylines.isEmpty());
 
-    // Verify 3D ribbon mesh was generated
-    QVERIFY(!scrap.meshGroup.vertices.isEmpty());
-    QVERIFY(!scrap.meshGroup.triangles.isEmpty());
+    QVERIFY(scrap.meshGroup.vertices.isEmpty());
+    QVERIFY(scrap.meshGroup.triangles.isEmpty());
+    QVERIFY(!scrap.linework.isEmpty());
+    QVERIFY(scrap.diagnostics.contains(QStringLiteral("Wall lines do not form a closed boundary; the sheet surface was omitted.")));
+}
 
-    // Every triangle index must reference a valid vertex
-    const quint32 vertexCount = quint32(scrap.meshGroup.vertices.size());
-    for (const auto &tri : scrap.meshGroup.triangles) {
-        QVERIFY(tri[0] < vertexCount);
-        QVERIFY(tri[1] < vertexCount);
-        QVERIFY(tri[2] < vertexCount);
+void TherionScrap3DTest::projectsLinesAreasAndPointsForATh2Scrap()
+{
+    const QString th2 = QStringLiteral(
+        "scrap s1 -projection plan -scale [0 0 100 0 0 0 10 0 m]\n"
+        "  point 0 0 station -name A\n"
+        "  line border -id b1 -close on\n"
+        "    0 0\n"
+        "    100 0\n"
+        "    100 100\n"
+        "    0 100\n"
+        "  endline\n"
+        "  area water\n"
+        "    b1\n"
+        "  endarea\n"
+        "  line contour\n"
+        "    0 0\n"
+        "    50 50\n"
+        "    100 100\n"
+        "  endline\n"
+        "  point 50 50 label -text marker\n"
+        "endscrap\n");
+    QHash<QString, ThreeDViewerVec3> stationPositions;
+    stationPositions.insert(QStringLiteral("A"), {0.0, 0.0, 5.0});
+
+    const QVector<TherionScrap3DModel> scraps =
+        TherionScrap3D::projectTh2File(QStringLiteral("scrap.th2"), th2, QString(), stationPositions);
+
+    QCOMPARE(scraps.size(), 1);
+    const TherionScrap3DModel &scrap = scraps.first();
+    QVERIFY(scrap.transform.valid);
+    QVERIFY(scrap.transform.approximate);
+    QVERIFY(scrap.diagnostics.isEmpty());
+    QCOMPARE(scrap.meshGroup.vertices.size(), 4);
+    QCOMPARE(scrap.meshGroup.triangles.size(), 2);
+    QCOMPARE(scrap.linework.size(), 2);
+    QCOMPARE(scrap.pointFeatures.size(), 1);
+}
+
+void TherionScrap3DTest::projectsFoldedSheetAndPreservesTh2Linework()
+{
+    const QString th2 = QStringLiteral(
+        "scrap s1 -scale [0 0 10 0 0 0 10 0 m]\n"
+        "  point 0 0 station -name A\n"
+        "  point 10 0 station -name B\n"
+        "  line wall\n"
+        "    0 0\n"
+        "    10 0\n"
+        "  endline\n"
+        "  line wall\n"
+        "    10 0\n"
+        "    10 10\n"
+        "  endline\n"
+        "  line wall\n"
+        "    10 10\n"
+        "    0 10\n"
+        "  endline\n"
+        "  line wall\n"
+        "    0 10\n"
+        "    0 0\n"
+        "  endline\n"
+        "  line contour\n"
+        "    0 0\n"
+        "    5 5\n"
+        "    10 10\n"
+        "  endline\n"
+        "endscrap\n");
+    QHash<QString, ThreeDViewerVec3> stationPositions;
+    stationPositions.insert(QStringLiteral("A"), {0.0, 0.0, 0.0});
+    stationPositions.insert(QStringLiteral("B"), {10.0, 0.0, 10.0});
+
+    const QVector<TherionScrap3DModel> scraps =
+        TherionScrap3D::projectTh2File(QStringLiteral("folded.th2"), th2, QString(), stationPositions);
+
+    QCOMPARE(scraps.size(), 1);
+    const TherionScrap3DModel &scrap = scraps.first();
+    QVERIFY(scrap.transform.valid);
+    QCOMPARE(scrap.meshGroup.vertices.size(), 4);
+    QCOMPARE(scrap.meshGroup.triangles.size(), 2);
+    QCOMPARE(scrap.linework.size(), 5);
+    QCOMPARE(scrap.linework.at(0).type, QStringLiteral("wall"));
+    QCOMPARE(scrap.linework.at(4).type, QStringLiteral("contour"));
+    QVERIFY(!scrap.linework.at(0).closed);
+    QVERIFY(scrap.meshGroup.vertices.at(0).z != scrap.meshGroup.vertices.at(2).z);
+}
+
+void TherionScrap3DTest::keepsGeometrySeparatedBetweenScraps()
+{
+    const QString th2 = QStringLiteral(
+        "scrap first -scale [0 0 10 0 0 0 1 0 m]\n"
+        "  point 0 0 station -name A\n"
+        "  line contour\n"
+        "    0 0\n"
+        "    10 0\n"
+        "  endline\n"
+        "endscrap\n"
+        "scrap second -scale [0 0 10 0 0 0 1 0 m]\n"
+        "  point 0 0 station -name B\n"
+        "  line contour\n"
+        "    0 0\n"
+        "    5 5\n"
+        "    10 0\n"
+        "  endline\n"
+        "endscrap\n");
+    QHash<QString, ThreeDViewerVec3> stationPositions;
+    stationPositions.insert(QStringLiteral("A"), {0.0, 0.0, 0.0});
+    stationPositions.insert(QStringLiteral("B"), {10.0, 0.0, 0.0});
+
+    const QVector<TherionScrap3DModel> scraps =
+        TherionScrap3D::projectTh2File(QStringLiteral("two-scraps.th2"), th2, QString(), stationPositions);
+
+    QCOMPARE(scraps.size(), 2);
+    QVERIFY(scraps.at(0).meshGroup.triangles.isEmpty());
+    QVERIFY(scraps.at(1).meshGroup.triangles.isEmpty());
+    QCOMPARE(scraps.at(0).linework.size(), 1);
+    QCOMPARE(scraps.at(1).linework.size(), 1);
+    QCOMPARE(scraps.at(0).anchors.size(), 1);
+    QCOMPARE(scraps.at(1).anchors.size(), 1);
+    QCOMPARE(scraps.at(0).transform.matchedAnchorCount, 1);
+    QCOMPARE(scraps.at(1).transform.matchedAnchorCount, 1);
+    QVERIFY(scraps.at(0).meshGroup.vertices.isEmpty());
+    QVERIFY(scraps.at(1).meshGroup.vertices.isEmpty());
+}
+
+void TherionScrap3DTest::objectsFollowTriangulatedWallSurface()
+{
+    const QString th2 = QStringLiteral(
+        "scrap passage -scale [0 0 10 0 0 0 10 0 m]\n"
+        "  point 0 0 station -name A\n"
+        "  point 10 0 station -name B\n"
+        "  point 0 10 station -name C\n"
+        "  line wall -close on\n"
+        "    0 0\n"
+        "    10 0\n"
+        "    0 10\n"
+        "  endline\n"
+        "  line rock-border\n"
+        "    2 2\n"
+        "    3 3\n"
+        "  endline\n"
+        "  point 2 2 stalactite\n"
+        "endscrap\n");
+    const QHash<QString, ThreeDViewerVec3> stationPositions{
+        {QStringLiteral("A"), {0.0, 0.0, 0.0}},
+        {QStringLiteral("B"), {10.0, 0.0, 10.0}},
+        {QStringLiteral("C"), {0.0, 10.0, 20.0}},
+    };
+
+    const auto scraps = TherionScrap3D::projectTh2File(
+        QStringLiteral("draped-objects.th2"), th2, QString(), stationPositions);
+
+    QCOMPARE(scraps.size(), 1);
+    const TherionScrap3DModel &scrap = scraps.first();
+    QVERIFY(!scrap.meshGroup.triangles.isEmpty());
+    QCOMPARE(scrap.pointFeatures.size(), 1);
+    QVERIFY(std::abs(scrap.pointFeatures.first().position.z - 6.0) < 1e-6);
+
+    const ThreeDViewerScrapPolyline *rockBorder = nullptr;
+    for (const ThreeDViewerScrapPolyline &line : scrap.linework) {
+        if (line.type == QStringLiteral("rock-border")) {
+            rockBorder = &line;
+            break;
+        }
     }
+    QVERIFY(rockBorder != nullptr);
+    QVERIFY(std::abs(rockBorder->points.first().z - 6.0) < 1e-6);
+}
+
+void TherionScrap3DTest::joinedWallsAcrossScrapsFormOneSurface()
+{
+    QTemporaryDir projectDir;
+    QVERIFY(projectDir.isValid());
+
+    const QString surveyText = QStringLiteral(
+        "survey cave\n"
+        "  centreline\n"
+        "    data normal from to length compass clino\n"
+        "    A B 10 0 90\n"
+        "  endcentreline\n"
+        "  input walls.th2\n"
+        "  join left@cave right@cave -count 2\n"
+        "  join leftWall:end rightWall:0\n"
+        "endsurvey\n");
+    const QString th2Text = QStringLiteral(
+        "scrap left -scale [0 0 10 0 0 0 10 0 m]\n"
+        "  point 0 0 station -name A\n"
+        "  line wall -id leftWall\n"
+        "    0 0\n"
+        "    10 0\n"
+        "    10 10\n"
+        "  endline\n"
+        "endscrap\n"
+        "scrap right -scale [0 0 10 0 0 0 10 0 m]\n"
+        "  point 0 0 station -name B\n"
+        "  line wall -id rightWall\n"
+        "    9 10\n"
+        "    0 10\n"
+        "    0 0\n"
+        "  endline\n"
+        "  line slope\n"
+        "    5 5\n"
+        "    6 5\n"
+        "  endline\n"
+        "  point 5 5 stalactite\n"
+        "endscrap\n");
+    const QString surveyPath = projectDir.filePath(QStringLiteral("cave.th"));
+    QFile surveyFile(surveyPath);
+    QVERIFY(surveyFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray surveyBytes = surveyText.toUtf8();
+    QCOMPARE(surveyFile.write(surveyBytes), qint64(surveyBytes.size()));
+    surveyFile.close();
+
+    QFile th2File(projectDir.filePath(QStringLiteral("walls.th2")));
+    QVERIFY(th2File.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray th2Bytes = th2Text.toUtf8();
+    QCOMPARE(th2File.write(th2Bytes), qint64(th2Bytes.size()));
+    th2File.close();
+
+    const TherionCentrelineResult result = computeTherionCentreline(
+        {surveyPath}, defaultTherionCentrelineFileReader());
+
+    QVERIFY(result.diagnostics.isEmpty());
+    QVERIFY(!result.scene.meshGroups.isEmpty());
+    int triangleCount = 0;
+    for (const ThreeDViewerMeshGroup &mesh : result.scene.meshGroups) {
+        triangleCount += mesh.triangles.size();
+    }
+    QCOMPARE(triangleCount, 2);
+    QCOMPARE(result.scrapModels.size(), 2);
+    const ThreeDViewerVec3 &leftJoin = result.scrapModels.at(0).linework.first().points.last();
+    const ThreeDViewerVec3 &rightJoin = result.scrapModels.at(1).linework.first().points.first();
+    QVERIFY(std::abs(leftJoin.x - 9.5) < 1e-6);
+    QVERIFY(std::abs(rightJoin.x - 9.5) < 1e-6);
+    QVERIFY(std::abs(leftJoin.z - 5.0) < 1e-6);
+    QCOMPARE(leftJoin.y, rightJoin.y);
+    QCOMPARE(leftJoin.z, rightJoin.z);
+    QCOMPARE(result.scrapModels.at(1).pointFeatures.size(), 1);
+    QVERIFY(std::abs(result.scrapModels.at(1).pointFeatures.first().position.z - 5.0) < 1e-6);
+    QVERIFY(std::abs(result.scrapModels.at(1).linework.at(1).points.first().z - 5.0) < 1e-6);
+}
+
+void TherionScrap3DTest::filtersHiddenScrapsAndWallsBeforeProjection()
+{
+    const QString source = QStringLiteral(
+        "scrap shown -projection plan\n"          // 1
+        "point 0 0 station -name A\n"             // 2
+        "point 10 0 station -name B\n"            // 3
+        "line wall -close on\n"                   // 4
+        "0 0\n10 0\n10 10\n0 0\nendline\n"       // 5-9
+        "line wall\n0 1\n10 1\nendline\n"        // 10-13
+        "line contour\n0 2\n10 2\nendline\n"     // 14-17
+        "endscrap\n"                             // 18
+        "scrap hidden -projection plan\n"         // 19
+        "point 100 100 station -name C\n"
+        "line wall\n100 100\n110 100\nendline\n"
+        "endscrap\n");
+    const QHash<QString, ThreeDViewerVec3> stations{
+        {QStringLiteral("A"), {0.0, 0.0, 0.0}},
+        {QStringLiteral("B"), {10.0, 0.0, 10.0}},
+        {QStringLiteral("C"), {500.0, 500.0, 500.0}},
+    };
+    const TherionScrap3DOptions options{{2, 10, 19}, true};
+    const auto scraps = TherionScrap3D::projectTh2File(
+        QStringLiteral("map.th2"), source, QString(), stations, 0, 0, options);
+    QCOMPARE(scraps.size(), 1);
+    const auto &scrap = scraps.first();
+    QCOMPARE(scrap.scrapId, QStringLiteral("shown"));
+    QCOMPARE(scrap.anchors.size(), 2);
+    QCOMPARE(scrap.transform.matchedAnchorCount, 2);
+    QVERIFY(scrap.transform.valid);
+    QCOMPARE(scrap.linework.size(), 1);
+    QCOMPARE(scrap.linework.first().type, QStringLiteral("wall"));
+    QVERIFY(scrap.linework.first().closed);
+    QVERIFY(scrap.meshGroup.triangles.isEmpty());
+    QVERIFY(scrap.meshGroup.vertices.isEmpty());
+    QVERIFY(scrap.pointFeatures.isEmpty());
+    QVERIFY(scrap.diagnostics.isEmpty());
 }
 
 void TherionScrap3DTest::integratedComputeWithTh2()
@@ -217,7 +550,8 @@ void TherionScrap3DTest::integratedComputeWithTh2()
     QCOMPARE(result.statistics.shotCount, 9);
 
     // Mesh group created from clopy01.th2!
-    QCOMPARE(result.scene.meshGroups.size(), 1);
+    QCOMPARE(result.scene.meshGroups.size(), 0);
+    QVERIFY(!result.scene.scrapLinework.isEmpty());
     QCOMPARE(result.scrapModels.size(), 1);
     QCOMPARE(result.scrapModels.first().scrapId, QStringLiteral("clopy01"));
 

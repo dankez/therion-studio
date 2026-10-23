@@ -96,6 +96,7 @@ set(THERION_CORE_SOURCES
     src/core/DocumentFile.h
     src/core/IFileSystem.h
     src/core/ISessionStore.h
+    src/core/MapAppearanceSettings.h
     src/core/QtFileSystem.cpp
     src/core/QtFileSystem.h
     src/core/MapBackgroundPlacement.cpp
@@ -150,7 +151,9 @@ set(THERION_CORE_SOURCES
     src/core/SessionStore.h)
 
 add_library(therion_core STATIC
-    ${THERION_CORE_SOURCES})
+    ${THERION_CORE_SOURCES}
+    src/core/ScrapAltitudeModel.cpp
+    src/core/ScrapAltitudeModel.h)
 
 target_link_libraries(therion_core
     PUBLIC
@@ -179,6 +182,7 @@ function(therion_add_qtest_suite_cases target_name)
 endfunction()
 
 set(THERION_CORE_QTEST_SUITES
+    ScrapAltitudeModelTest
     CommandCatalogStoreTest
     CommandOptionParserTest
     MapBackgroundPlacementTest
@@ -258,7 +262,18 @@ set(THERION_MAP_EDITOR_QTEST_SUITES
     MapEditorUndoArbitrationServiceTest)
 
 set(THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES
-    MapEditorBackgroundRoundTripTest)
+    MapEditorAppearanceTest
+    MapEditorViewportCullingTest
+    MapEditorEndpointSnapTransactionTest
+    MapEditorPlainClickSelectionTest
+    MapEditorScrapStationHighlightTest
+    MapEditorInteractionPerformanceTest
+    MapEditorSpatialIndexRepaintTest
+    MapEditorBulkVisibilityTest
+    MapEditorAltitudeUnderlayTest
+    MapEditorBackgroundRoundTripTest
+    MapEditorSceneLifecycleTest
+    MapEditorLinePreviewTest)
 
 set(THERION_TEXT_EDITOR_DOCUMENT_QTEST_SUITES
     TextEditorDocumentIoServiceTest
@@ -338,6 +353,24 @@ set(THERION_INSPECTOR_PANEL_SOURCES
     src/app/text_editor/InspectorPanelStyle.h)
 
 set(THERION_APP_SOURCES
+    src/app/ProjectVersioningNavigationService.cpp
+    src/app/ProjectVersioningNavigationService.h
+    src/app/ProjectVersioningToolbar.cpp
+    src/app/ProjectVersioningToolbar.h
+    src/app/ProjectVersioningService.cpp
+    src/app/ProjectVersioningService.h
+    src/app/ProjectVersioningWidget.cpp
+    src/app/ProjectVersioningWidget.h
+    src/app/GitHubRepositoryWidget.cpp
+    src/app/GitHubRepositoryWidget.h
+    src/app/ProjectGitHubSettings.cpp
+    src/app/ProjectGitHubSettings.h
+    src/app/ProjectGitHubBackup.cpp
+    src/app/ProjectGitHubBackup.h
+    src/app/ProjectVersioningSettings.cpp
+    src/app/ProjectVersioningSettings.h
+    src/app/ProjectVersioningStore.cpp
+    src/app/ProjectVersioningStore.h
     src/app/MainWindowSessionDocumentService.cpp
     src/app/MainWindowSessionDocumentService.h
     src/app/MainWindowSessionDocumentController.cpp
@@ -401,6 +434,12 @@ set(THERION_APP_SOURCES
     src/app/ProjectFileWatchDelta.h
     src/app/ProjectOutputsScanner.cpp
     src/app/ProjectOutputsScanner.h
+    src/app/ProjectAltitudeService.cpp
+    src/app/ProjectAltitudeService.h
+    src/app/MainWindowAltitudeUnderlay.cpp
+    src/app/MainWindowSettings.cpp
+    src/app/MainWindowProjectVersioning.cpp
+    src/app/MainWindowGitHubBackup.cpp
     src/app/ProjectSearchScanner.cpp
     src/app/ProjectSearchScanner.h
     src/app/ProjectValidationController.cpp
@@ -423,6 +462,8 @@ set(THERION_APP_SOURCES
     src/app/TherionRunnerLifecyclePresenter.h
     src/app/TherionRunnerOutputLinker.cpp
     src/app/TherionRunnerOutputLinker.h
+    src/app/TherionConsoleOutputStore.cpp
+    src/app/TherionConsoleOutputStore.h
     src/app/TherionRunnerService.cpp
     src/app/TherionRunnerService.h
     src/app/TherionRunnerStartResultPresenter.cpp
@@ -461,6 +502,8 @@ set(THERION_APP_SOURCES
     src/app/three_d_viewer/ThreeDViewerViewportController.h
     src/app/three_d_viewer/ThreeDViewerProjection.cpp
     src/app/three_d_viewer/ThreeDViewerProjection.h
+    src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.cpp
+    src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.h
     src/app/three_d_viewer/ThreeDViewerViewportItem.cpp
     src/app/three_d_viewer/ThreeDViewerViewportItem.h
     src/app/three_d_viewer/ThreeDViewerViewportWidget.cpp
@@ -683,10 +726,18 @@ set(THERION_TEXT_EDITOR_SHARED_SOURCES
 )
 
 set(THERION_MAP_EDITOR_SOURCES
+    src/app/text_editor/map_editor/MapEditorAltitudeUnderlay.cpp
+    src/app/text_editor/map_editor/MapEditorAltitudeUnderlay.h
+    src/app/text_editor/map_editor/MapEditorTabAltitudeUnderlay.cpp
     src/app/text_editor/map_editor/MapEditorBackgroundAssetCache.cpp
     src/app/text_editor/map_editor/MapEditorBackgroundAssetCache.h
     src/app/text_editor/map_editor/MapEditorSceneGeneration.cpp
     src/app/text_editor/map_editor/MapEditorSceneGeneration.h
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h
+    src/app/text_editor/map_editor/MapEditorSceneInteractionIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneInteractionIndex.h
+    src/app/text_editor/map_editor/MapEditorSceneItems.h
     src/app/text_editor/map_editor/MapEditorBackgroundAssetLoader.cpp
     src/app/text_editor/map_editor/MapEditorBackgroundAssetLoader.h
     src/app/text_editor/map_editor/MapEditorSourceProjectionCache.cpp
@@ -744,6 +795,7 @@ set(THERION_MAP_EDITOR_SOURCES
     src/app/text_editor/map_editor/MapEditorRecentSymbolsLayout.h
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.cpp
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.h
+    src/app/text_editor/map_editor/MapEditorDirectionAidItem.h
     src/app/text_editor/map_editor/MapEditorPointSymbolGeometry.h
     src/app/text_editor/map_editor/MapEditorStylePreviewWidget.cpp
     src/app/text_editor/map_editor/MapEditorStylePreviewWidget.h
@@ -760,6 +812,7 @@ set(THERION_MAP_EDITOR_SOURCES
     src/app/text_editor/map_editor/MapEditorInputPolicy.h
     src/app/text_editor/map_editor/MapEditorMagnifierOverlay.cpp
     src/app/text_editor/map_editor/MapEditorMagnifierOverlay.h
+    src/app/text_editor/map_editor/MapEditorPerformanceCounters.h
     src/app/text_editor/map_editor/MapEditorViewportInputContext.h
     src/app/text_editor/map_editor/MapEditorViewportInputController.cpp
     src/app/text_editor/map_editor/MapEditorViewportInputController.h
@@ -912,6 +965,7 @@ set(THERION_STUDIO_RESOURCE_FILES
     resources/icons/lucide/check.svg
     resources/icons/lucide/code.svg
     resources/icons/lucide/cog.svg
+    resources/icons/lucide/github-backup.svg
     resources/icons/lucide/compass.svg
     resources/icons/lucide/copy.svg
     resources/icons/lucide/download.svg
@@ -954,6 +1008,7 @@ set(THERION_STUDIO_RESOURCE_FILES
     resources/icons/lucide/play.svg
     resources/icons/lucide/arrow-big-down.svg
     resources/icons/lucide/arrow-big-right.svg
+    resources/icons/lucide/box.svg
     resources/icons/lucide/view-top.svg
     resources/icons/lucide/view-side.svg
     resources/icons/lucide/view-roll-left.svg
@@ -977,6 +1032,8 @@ qt_add_executable(MapObjectStyleGallery
     src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.cpp
     src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.h
     src/app/text_editor/map_editor/MapEditorPointSymbolGeometry.h
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h
     src/app/text_editor/map_editor/MapEditorSceneItems.cpp
     src/app/text_editor/map_editor/MapEditorSceneInternals.h
     src/app/text_editor/map_editor/MapEditorSceneSupport.h
@@ -1202,6 +1259,7 @@ therion_add_core_unit_test(TherionSourceValidatorTest
     tests/TherionSourceValidatorTest.cpp)
 
 therion_add_core_qtest_runner(TherionCoreQTests
+    tests/core/ScrapAltitudeModelTest.cpp
     tests/core/CoreQTestMain.cpp
     tests/CommandCatalogStoreTest.cpp
     tests/core/CommandOptionParserTest.cpp
@@ -1258,9 +1316,12 @@ qt_add_executable(MapGeometryFeatureParsingTest
     src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.h
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.cpp
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.h
+    src/app/text_editor/map_editor/MapEditorDirectionAidItem.h
     src/app/text_editor/map_editor/MapEditorObjectDetailsLogic.cpp
     src/app/text_editor/map_editor/MapEditorObjectDetailsLogic.h
     src/app/text_editor/map_editor/MapEditorPointSymbolGeometry.h
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h
     src/app/text_editor/map_editor/MapEditorSceneItems.cpp
     src/app/text_editor/map_editor/MapEditorSceneInternals.h
     src/app/text_editor/map_editor/MapEditorReferencedAreaResolver.cpp
@@ -1285,9 +1346,12 @@ qt_add_executable(MapEditorSourceReferenceResolverTest
     src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.h
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.cpp
     src/app/text_editor/map_editor/MapEditorLineDecorationItem.h
+    src/app/text_editor/map_editor/MapEditorDirectionAidItem.h
     src/app/text_editor/map_editor/MapEditorObjectDetailsLogic.cpp
     src/app/text_editor/map_editor/MapEditorObjectDetailsLogic.h
     src/app/text_editor/map_editor/MapEditorPointSymbolGeometry.h
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h
     src/app/text_editor/map_editor/MapEditorSceneItems.cpp
     src/app/text_editor/map_editor/MapEditorSceneInternals.h
     src/app/text_editor/map_editor/MapEditorReferencedAreaResolver.cpp
@@ -1376,7 +1440,9 @@ qt_add_executable(ThreeDViewerQTests
     src/app/three_d_viewer/ThreeDViewerProjection.cpp
     src/app/three_d_viewer/ThreeDViewerProjection.h
     src/app/three_d_viewer/ThreeDViewerViewportWidget.cpp
-    src/app/three_d_viewer/ThreeDViewerViewportWidget.h)
+    src/app/three_d_viewer/ThreeDViewerViewportWidget.h
+    src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.cpp
+    src/app/text_editor/map_editor/MapEditorObjectStyleCatalog.h)
 
 target_link_libraries(ThreeDViewerQTests PRIVATE therion_core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Quick Qt6::QuickWidgets Qt6::Qml Qt6::QuickControls2 Qt6::Test)
 
@@ -1387,7 +1453,8 @@ qt_add_resources(ThreeDViewerQTests ThreeDViewerQTestsResources
     PREFIX "/"
     FILES
         resources/qml/three_d_viewer/ThreeDViewerViewport.qml
-        resources/qml/three_d_viewer/ThreeDViewerInspector.qml)
+        resources/qml/three_d_viewer/ThreeDViewerInspector.qml
+        ${THERION_MAP_OBJECT_STYLE_FILES})
 
 qt_add_executable(MapEditorObjectStyleCatalogTest
     tests/MapEditorObjectStyleCatalogTest.cpp
@@ -1405,6 +1472,8 @@ qt_add_executable(MapEditorInspectorDataTest
     tests/MapEditorInspectorDataTest.cpp
     src/app/text_editor/map_editor/MapEditorInspectorData.cpp
     src/app/text_editor/map_editor/MapEditorInspectorData.h
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.cpp
+    src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h
     src/app/text_editor/map_editor/MapEditorSceneItems.cpp
     src/app/text_editor/map_editor/MapEditorSceneSupport.h)
 
@@ -1471,6 +1540,45 @@ qt_add_executable(TherionRunnerSupportQTests
     tests/TherionRunnerPresenterTest.cpp)
 
 target_link_libraries(TherionRunnerSupportQTests PRIVATE therion_app Qt6::Test)
+
+qt_add_executable(TherionConsoleOutputTest
+    tests/TherionConsoleOutputTest.cpp
+    src/app/MainWindowTherionConsoleBuilder.cpp)
+target_link_libraries(TherionConsoleOutputTest PRIVATE therion_app Qt6::Test)
+
+therion_add_app_unit_test(ProjectVersioningStoreTest
+    tests/ProjectVersioningStoreTest.cpp)
+therion_add_app_unit_test(ProjectGitHubBackupTest
+    tests/ProjectGitHubBackupTest.cpp)
+target_link_libraries(ProjectGitHubBackupTest PRIVATE Qt6::Test)
+
+therion_add_app_unit_test(ProjectVersioningRestoreTest
+    tests/ProjectVersioningRestoreTest.cpp)
+target_link_libraries(ProjectVersioningRestoreTest PRIVATE Qt6::Test)
+
+therion_add_app_unit_test(ProjectVersioningSettingsTest
+    tests/ProjectVersioningSettingsTest.cpp)
+
+therion_add_app_unit_test(ProjectVersioningServiceTest
+    tests/ProjectVersioningServiceTest.cpp)
+target_link_libraries(ProjectVersioningServiceTest PRIVATE Qt6::Test)
+
+therion_add_app_unit_test(ProjectVersioningWidgetTest
+    tests/ProjectVersioningWidgetTest.cpp)
+target_link_libraries(ProjectVersioningWidgetTest PRIVATE Qt6::Test)
+
+therion_add_app_unit_test(ProjectVersioningToolbarTest
+    tests/ProjectVersioningToolbarTest.cpp
+    ${THERION_APP_UI_STYLE_SOURCES})
+target_link_libraries(ProjectVersioningToolbarTest PRIVATE Qt6::Test)
+qt_add_resources(ProjectVersioningToolbarTest BackupToolbarIcons
+    PREFIX "/"
+    FILES
+        resources/icons/lucide/rotate-ccw.svg
+        resources/icons/lucide/rotate-cw.svg
+        resources/icons/lucide/folder-tree.svg
+        resources/icons/lucide/cog.svg
+        resources/icons/lucide/github-backup.svg)
 
 therion_add_app_unit_test(TherionRunnerServiceTest
     tests/TherionRunnerServiceTest.cpp)
@@ -1725,6 +1833,21 @@ target_link_libraries(therion_map_editor_ui_test_support
         Qt6::Concurrent
         Qt6::Svg)
 
+qt_add_executable(MainWindowProjectVersioningTest
+    tests/MainWindowProjectVersioningTest.cpp
+    ${THERION_MAIN_WINDOW_SOURCES}
+    ${THERION_TEXT_EDITOR_SHARED_SOURCES}
+    ${THERION_MAP_EDITOR_SOURCES}
+    ${THERION_TEXT_EDITOR_TAB_SOURCES})
+target_link_libraries(MainWindowProjectVersioningTest PRIVATE
+    therion_app Qt6::Test Qt6::Concurrent)
+if(TARGET TherionStudio_lrelease)
+    add_dependencies(MainWindowProjectVersioningTest TherionStudio_lrelease)
+endif()
+qt_add_resources(MainWindowProjectVersioningTest ProjectRestoreUiResources
+    PREFIX "/"
+    FILES ${THERION_STUDIO_RESOURCE_FILES})
+
 function(therion_add_map_editor_ui_test target_name test_source resource_name)
     qt_add_executable(${target_name}
         ${test_source})
@@ -1758,14 +1881,41 @@ therion_add_map_editor_ui_test(MapEditorSelectionPanelTypeOptionsTest
     "MapEditorSelectionPanelTypeOptionsResources")
 
 qt_add_executable(MapEditorBackgroundUiQTests
+    tests/MapEditorAppearanceTest.cpp
+    src/app/ProjectVersioningWidget.cpp
+    src/app/ProjectVersioningWidget.h
+    src/app/GitHubRepositoryWidget.cpp
+    src/app/GitHubRepositoryWidget.h
+    src/app/ProjectGitHubSettings.cpp
+    src/app/ProjectGitHubSettings.h
+    src/app/ProjectVersioningSettings.cpp
+    src/app/ProjectVersioningSettings.h
+    src/app/ProjectVersioningStore.cpp
+    src/app/ProjectVersioningStore.h
+    src/app/MainWindowSettingsDialog.cpp
+    src/app/MainWindowSettingsDialog.h
+    src/app/TherionExecutableDetector.cpp
+    src/app/TherionExecutableSelectionController.cpp
+    tests/MapEditorViewportCullingTest.cpp
+    tests/MapEditorEndpointSnapTransactionTest.cpp
+    tests/MapEditorPlainClickSelectionTest.cpp
+    tests/MapEditorScrapStationHighlightTest.cpp
+    tests/MapEditorInteractionPerformanceTest.cpp
+    tests/MapEditorSpatialIndexRepaintTest.cpp
+    tests/MapEditorBulkVisibilityTest.cpp
+    tests/MapEditorAltitudeUnderlayTest.cpp
     tests/MapEditorBackgroundUiQTestMain.cpp
-    tests/MapEditorBackgroundRoundTripTest.cpp)
+    tests/MapEditorBackgroundRoundTripTest.cpp
+    tests/MapEditorSceneLifecycleTest.cpp
+    tests/MapEditorLinePreviewTest.cpp)
 
 target_link_libraries(MapEditorBackgroundUiQTests PRIVATE
     therion_map_editor_ui_test_support
     Qt6::Test)
 
 target_compile_definitions(MapEditorBackgroundUiQTests PRIVATE
+    THERION_STUDIO_TEST_SOURCE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+    THERION_STUDIO_TEST_WORKSPACE="${CMAKE_CURRENT_SOURCE_DIR}/.verification"
     THERION_STUDIO_TESTING)
 
 qt_add_resources(MapEditorBackgroundUiQTests MapEditorBackgroundUiQTestsResources
@@ -1864,10 +2014,19 @@ set(THERION_UNIT_TEST_TARGETS
     BlockEditorLogicQTests
     BlockEditorToolboxControllerTest
     TherionRunnerSupportQTests
+    ProjectVersioningStoreTest
+    ProjectGitHubBackupTest
+    ProjectVersioningRestoreTest
+    ProjectVersioningSettingsTest
+    ProjectVersioningServiceTest
     TherionRunnerServiceTest
     MainWindowValidationFixApplyServiceTest)
 
 set(THERION_UI_TEST_TARGETS
+    TherionConsoleOutputTest
+    MainWindowProjectVersioningTest
+    ProjectVersioningToolbarTest
+    ProjectVersioningWidgetTest
     TherionSqlReportTabTest
     TextEditorCaretInteractionTest
     TextEditorCompletionHighlightTest
@@ -1968,6 +2127,7 @@ therion_add_qtest_suite_cases(BlockEditorLogicQTests ${THERION_BLOCK_EDITOR_QTES
 therion_add_qtest_suite_cases(TherionRunnerSupportQTests ${THERION_RUNNER_SUPPORT_QTEST_SUITES})
 
 add_test(NAME StructureConstraintsTest COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/check_structure_constraints.py)
+add_test(NAME TherionGitignoreTest COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/test_therion_gitignore.py)
 
 set(THERION_TEST_CASE_NAMES
     ${THERION_TEST_EXECUTABLE_TARGETS}
@@ -1986,6 +2146,7 @@ list(APPEND THERION_UNIT_TEST_CASES ${THERION_QTEST_SUITE_CASES})
 set_tests_properties(
     ${THERION_UNIT_TEST_CASES}
     StructureConstraintsTest
+    TherionGitignoreTest
     PROPERTIES
         LABELS "unit")
 
