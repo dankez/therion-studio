@@ -11,6 +11,7 @@
 #include <QProcessEnvironment>
 #include <QSaveFile>
 #include <QTemporaryDir>
+#include <QTimeZone>
 
 #include <utility>
 
@@ -541,7 +542,7 @@ ProjectVersioningStore::HistoryResult ProjectVersioningStore::history() const
         }
         result.checkpoints.append({QString::fromLatin1(fields.at(0)),
                                    QString::fromUtf8(fields.at(2)),
-                                   QDateTime::fromSecsSinceEpoch(timestamp, Qt::UTC)});
+                                   QDateTime::fromSecsSinceEpoch(timestamp, QTimeZone::utc())});
     }
     if (!result.checkpoints.isEmpty()) {
         const auto &latest = result.checkpoints.first();

@@ -243,6 +243,7 @@ set(THERION_THREE_D_VIEWER_QTEST_SUITES
     ThreeDViewerInspectorStateTest
     ThreeDViewerImageExportDialogTest
     ThreeDViewerInspectorWidgetTest
+    ThreeDViewerTabHostingTest
     ThreeDViewerViewportWidgetTest
     ThreeDViewerViewportControllerTest)
 
@@ -1191,6 +1192,9 @@ if(WIN32)
             execute_process(
                 COMMAND \"${THERION_STUDIO_WINDEPLOYQT_EXECUTABLE}\"
                     --dir \"\${_therion_studio_windows_runtime_dir}\"
+                    --libdir \"\${_therion_studio_windows_runtime_dir}/${CMAKE_INSTALL_BINDIR}\"
+                    --plugindir \"\${_therion_studio_windows_runtime_dir}/plugins\"
+                    --qml-deploy-dir \"\${_therion_studio_windows_runtime_dir}/qml\"
                     --qmldir \"${CMAKE_CURRENT_SOURCE_DIR}/resources/qml\"
                     \"\${_therion_studio_windows_executable}\"
                 RESULT_VARIABLE _therion_studio_windeployqt_result)
@@ -1212,6 +1216,12 @@ if(WIN32)
             "Qt6::QWindowsIntegrationPlugin target is not available; "
             "Windows install layout relies on the Qt deploy script to provide qwindows.dll")
     endif()
+
+    # Ship the MSVC runtime beside the executable so the package runs on machines
+    # without the Visual C++ redistributable installed.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    set(CMAKE_INSTALL_UCRT_LIBRARIES FALSE)
+    include(InstallRequiredSystemLibraries)
 
     set(CPACK_GENERATOR "NSIS")
     set(CPACK_PACKAGE_NAME "Therion Studio")
@@ -1417,6 +1427,7 @@ qt_add_executable(ThreeDViewerQTests
     tests/ThreeDViewerInspectorStateTest.cpp
     tests/ThreeDViewerImageExportDialogTest.cpp
     tests/ThreeDViewerInspectorWidgetTest.cpp
+    tests/ThreeDViewerTabHostingTest.cpp
     tests/ThreeDViewerViewportWidgetTest.cpp
     tests/ThreeDViewerViewportControllerTest.cpp
     src/app/ExportFileName.cpp

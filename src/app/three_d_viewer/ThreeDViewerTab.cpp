@@ -801,9 +801,7 @@ void ThreeDViewerTab::buildUi()
         setMeasurementMode(false);
     });
 
-    inspectorWidget_ = new ThreeDViewerInspectorWidget(inspector);
-    inspectorWidget_->setInspectorState(inspectorState_);
-    inspectorWidget_->setLayerModel(layerModel_);
+    inspectorWidget_ = new ThreeDViewerInspectorWidget(inspectorState_, layerModel_, inspector);
     inspectorLayout->addWidget(inspectorWidget_, 1);
 
     if (viewport_ != nullptr && inspectorState_ != nullptr) {
