@@ -88,7 +88,7 @@ void MapEditorTab::flushPendingMapSceneRefreshAfterCommand()
     MapEditorSceneRefreshController(sceneRefreshContext()).flushPendingMapSceneRefreshAfterCommand();
     if (hadPendingRefresh) {
         sceneProjectedTextSerial_ = sourceTextChangeSerial_;
-        rebuildInspectorObjectsTree();
+        scheduleInspectorObjectsTreeRebuild();
         applyPendingNavigationSelection(false);
     }
     if (lastCompletedSceneProjectionGeneration_ > previousGeneration) {

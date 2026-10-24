@@ -703,6 +703,10 @@ private:
     void refreshWorkspaceModeUi();
     MapEditorInspectorObjectContext inspectorObjectContext();
     void rebuildInspectorObjectsTree();
+    // Defers the (expensive) objects tree rebuild until the scene refresh has been painted.
+    // Anything that maps a source line to a tree row calls flushDeferredInspectorTreeRebuild() first.
+    void scheduleInspectorObjectsTreeRebuild();
+    void flushDeferredInspectorTreeRebuild();
     QModelIndex findInspectorObjectIndexForLine(int lineNumber) const;
     void syncInspectorObjectSelectionToLine(int lineNumber);
     void syncInspectorObjectSelectionToLine(int lineNumber, bool scrollToSelection);
@@ -934,6 +938,7 @@ private:
     quint64 sourceTextChangeSerial_ = 0;
     quint64 sceneProjectedTextSerial_ = 0;
     bool mapSceneRefreshPending_ = false;
+    bool inspectorTreeRebuildPending_ = false;
     bool mapSceneRefreshWhenVisiblePending_ = false;
     MapEditorSceneGeneration sceneGeneration_;
     MapEditorSceneInteractionIndex sceneInteractionIndex_;
