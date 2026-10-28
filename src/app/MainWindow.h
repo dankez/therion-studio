@@ -9,6 +9,7 @@
 #include <QProcess>
 #include <QSet>
 
+#include <functional>
 #include <memory>
 
 #include "MainWindowTherionConsoleController.h"
@@ -309,6 +310,7 @@ private:
     void refreshDocumentStatusWidgets();
     void updateStatusHintLabel(const QString &text);
     void refreshMapPointerStatusLabel();
+    void forEachOpenMapEditorTab(const std::function<void(TherionStudio::MapEditorTab *)> &action);
     void connectMapEditorTabStatusSignals(TherionStudio::MapEditorTab *tab);
     void updateDocumentMenuActionState();
     void setCompilerStatusIdle();

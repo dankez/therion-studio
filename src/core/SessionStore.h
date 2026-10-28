@@ -88,6 +88,11 @@ public:
     MapAppearanceSettings therionMapAppearance() const override;
     void setTherionMapAppearance(const MapAppearanceSettings &appearance) override;
 
+    bool therionMapPointerCoordinatesInStatusBarEnabled() const override;
+    void setTherionMapPointerCoordinatesInStatusBarEnabled(bool enabled) override;
+    bool therionMapXviStationNamesInStatusBarEnabled() const override;
+    void setTherionMapXviStationNamesInStatusBarEnabled(bool enabled) override;
+
     bool therionMapObjectsAutoCollapseExpandScrapsEnabled() const override;
     void setTherionMapObjectsAutoCollapseExpandScrapsEnabled(bool enabled) override;
 
@@ -167,6 +172,11 @@ public:
     MapAppearanceSettings therionMapAppearance() const override;
     void setTherionMapAppearance(const MapAppearanceSettings &appearance) override;
 
+    bool therionMapPointerCoordinatesInStatusBarEnabled() const override;
+    void setTherionMapPointerCoordinatesInStatusBarEnabled(bool enabled) override;
+    bool therionMapXviStationNamesInStatusBarEnabled() const override;
+    void setTherionMapXviStationNamesInStatusBarEnabled(bool enabled) override;
+
     bool therionMapObjectsAutoCollapseExpandScrapsEnabled() const override;
     void setTherionMapObjectsAutoCollapseExpandScrapsEnabled(bool enabled) override;
 
@@ -198,6 +208,8 @@ private:
     bool therionMapMagnifierEnabled_ = true;
     bool therionMapAltitudeUnderlayEnabled_ = false;
     MapAppearanceSettings therionMapAppearance_;
+    bool therionMapPointerCoordinatesInStatusBarEnabled_ = false;
+    bool therionMapXviStationNamesInStatusBarEnabled_ = false;
     bool therionMapObjectsAutoCollapseExpandScrapsEnabled_ = false;
     QString therionMapRecentInsertTypeSubtypeHistory_;
     QString therionMapBackgroundLayers_;

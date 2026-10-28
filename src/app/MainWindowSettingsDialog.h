@@ -26,6 +26,8 @@ public:
         QString applicationLanguage = QStringLiteral("system");
         QString therionExecutablePath;
         QString defaultTextEditorMode = QStringLiteral("raw");
+        bool mapPointerCoordinatesInStatusBarEnabled = false;
+        bool mapXviStationNamesInStatusBarEnabled = false;
         bool automaticProjectValidationEnabled = false;
         bool mapAltitudeUnderlayEnabled = false;
         MapAppearanceSettings mapAppearance;
@@ -57,6 +59,8 @@ private:
     QPushButton *therionExecutableAutoDetectButton_ = nullptr;
     QComboBox *defaultTextEditorModeCombo_ = nullptr;
     QComboBox *xviCenterlineColorModeCombo_ = nullptr;
+    QCheckBox *mapPointerCoordinatesCheckBox_ = nullptr;
+    QCheckBox *mapXviStationNamesCheckBox_ = nullptr;
     QCheckBox *automaticProjectValidationCheckBox_ = nullptr;
     QCheckBox *mapAltitudeUnderlayCheckBox_ = nullptr;
     QSpinBox *mapAltitudeUnderlayStrengthSpin_ = nullptr;

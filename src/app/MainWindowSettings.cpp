@@ -3,9 +3,11 @@
 #include "ProjectVersioningService.h"
 #include "ProjectVersioningNavigationService.h"
 #include "ProjectVersioningSettings.h"
+#include "text_editor/map_editor/MapEditorTab.h"
 #include "../core/ISessionStore.h"
 #include "../platform/ApplicationLanguageOverride.h"
 
+#include <QDateTime>
 #include <QStatusBar>
 #include <QSettings>
 #include <QStandardPaths>
@@ -74,6 +76,10 @@ void MainWindow::showSettingsDialogAtPage(bool backups, bool github)
     initialSettings.defaultTextEditorMode = sessionStore_->defaultTextEditorMode();
     initialSettings.mapAltitudeUnderlayEnabled = sessionStore_->therionMapAltitudeUnderlayEnabled();
     initialSettings.mapAppearance = sessionStore_->therionMapAppearance();
+    initialSettings.mapPointerCoordinatesInStatusBarEnabled =
+        sessionStore_->therionMapPointerCoordinatesInStatusBarEnabled();
+    initialSettings.mapXviStationNamesInStatusBarEnabled =
+        sessionStore_->therionMapXviStationNamesInStatusBarEnabled();
     initialSettings.automaticProjectValidationEnabled =
         sessionStore_->automaticProjectValidationEnabled();
     initialSettings.troubleshootingLogsEnabled =
@@ -111,6 +117,12 @@ void MainWindow::showSettingsDialogAtPage(bool backups, bool github)
     sessionStore_->setDefaultTextEditorMode(updatedSettings.defaultTextEditorMode);
     sessionStore_->setTherionMapAltitudeUnderlayEnabled(updatedSettings.mapAltitudeUnderlayEnabled);
     sessionStore_->setTherionMapAppearance(updatedSettings.mapAppearance);
+    sessionStore_->setTherionMapPointerCoordinatesInStatusBarEnabled(
+        updatedSettings.mapPointerCoordinatesInStatusBarEnabled);
+    sessionStore_->setTherionMapXviStationNamesInStatusBarEnabled(
+        updatedSettings.mapXviStationNamesInStatusBarEnabled);
+    forEachOpenMapEditorTab([](TherionStudio::MapEditorTab *mapTab) { mapTab->refreshPointerStatusOptions(); });
+    refreshDocumentStatusWidgets();
     updateMapAppearance();
     updateMapAltitudeUnderlays();
     sessionStore_->setAutomaticProjectValidationEnabled(updatedSettings.automaticProjectValidationEnabled);
@@ -120,9 +132,9 @@ void MainWindow::showSettingsDialogAtPage(bool backups, bool github)
     updateProjectValidationStatusMessage();
 
     if (languageChanged) {
-        offerApplicationRestart(tr("Language changes will take effect after restarting Therion Studio."));
+        promptRestartForLanguageChange();
     }
     if (troubleshootingLogsChanged) {
-        offerApplicationRestart(tr("Troubleshooting log changes will take effect after restarting Therion Studio."));
+        updateTroubleshootingActionState();
     }
 }
