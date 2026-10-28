@@ -1315,6 +1315,11 @@ Pokud je soubor otevřený, nejprve se zavře.</translation>
         <translation>Pokyny map editoru</translation>
     </message>
     <message>
+        <location filename="../src/app/MainWindowStatusUi.cpp" line="50"/>
+        <source>Map pointer position</source>
+        <translation>Poloha ukazatele na mapě</translation>
+    </message>
+    <message>
         <location filename="../src/app/MainWindowStatusUi.cpp" line="139"/>
         <source>M: Select</source>
         <translation>M: Vybrat</translation>
@@ -2448,6 +2453,11 @@ Zdroj: %2:%3</translation>
         <location filename="../src/app/text_editor/map_editor/MapEditorDetachedPaneWindow.cpp" line="247"/>
         <source>Return Map</source>
         <translation>Vrátit mapu</translation>
+    </message>
+    <message>
+        <location filename="../src/app/text_editor/map_editor/MapEditorDetachedPaneWindow.cpp" line="181"/>
+        <source>Map pointer position</source>
+        <translation>Poloha ukazatele na mapě</translation>
     </message>
     <message>
         <location filename="../src/app/text_editor/map_editor/MapEditorDetachedPaneWindow.cpp" line="204"/>
