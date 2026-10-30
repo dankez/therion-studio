@@ -132,9 +132,9 @@ void MainWindow::showSettingsDialogAtPage(bool backups, bool github)
     updateProjectValidationStatusMessage();
 
     if (languageChanged) {
-        promptRestartForLanguageChange();
+        offerApplicationRestart(tr("Language changes will take effect after restarting Therion Studio."));
     }
     if (troubleshootingLogsChanged) {
-        updateTroubleshootingActionState();
+        offerApplicationRestart(tr("Troubleshooting log changes will take effect after restarting Therion Studio."));
     }
 }

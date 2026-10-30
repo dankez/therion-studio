@@ -101,7 +101,6 @@ public:
     {
         therionMapXviStationNamesInStatusBarEnabled_ = enabled;
     }
-    }
 
     bool therionMapObjectsAutoCollapseExpandScrapsEnabled() const override
     {

@@ -295,7 +295,6 @@ public:
     {
         return sourcePointFromScenePosition(scenePosition);
     }
-    }
 #endif
     void removeSelectedBackgroundLayer();
     void moveSelectedBackgroundLayerUp();

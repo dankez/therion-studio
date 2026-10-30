@@ -19,6 +19,7 @@ namespace TherionStudio
 namespace
 {
 constexpr int kPointerReadoutUpdateIntervalMs = 16;
+constexpr int kMagnifierUpdateIntervalMs = 16;
 }
 
 void MapEditorTab::updateCommandSurfaceState()
@@ -138,9 +139,9 @@ void MapEditorTab::updatePointerReadoutFromViewportPosition(const QPoint &viewpo
     const QString coordinateText = pointerCoordinateTextForScenePosition(scenePosition);
     QString xviStationName;
     if (sessionStore_ != nullptr && sessionStore_->therionMapXviStationNamesInStatusBarEnabled()) {
-        if (const std::optional<MapEditorXviStationSnapCandidate> xviStation =
-                xviStationSnapAtScenePosition(scenePosition)) {
-            xviStationName = xviStation->name;
+        const QVector<MapEditorXviStationSnapCandidate> snaps = xviStationSnapsAtScenePosition(scenePosition);
+        if (!snaps.isEmpty()) {
+            xviStationName = snaps.first().name;
         }
     }
     const bool coordinatesEnabled =
