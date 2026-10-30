@@ -1429,6 +1429,25 @@ void MapEditorCanvasEditController::recordLineAreaVertexMove(int lineNumber,
     }
     if (secondaryMoves.isEmpty()) {
         request.sourceEdits = std::move(primarySourceEdits);
+    } else {
+        // Coupled moves (bezier handles) normally force a whole-document snapshot rewrite. Apply them as
+        // targeted edits instead, but only when they reproduce the sequential result exactly.
+        QVector<std::pair<int, QPointF>> allMoves;
+        allMoves.reserve(secondaryMoves.size() + 1);
+        allMoves.append({vertexIndex, newPoint});
+        for (const MapLineAreaVertexSecondaryMove &move : std::as_const(secondaryMoves)) {
+            if (move.vertexIndex >= 0) {
+                allMoves.append({move.vertexIndex, move.newPoint});
+            }
+        }
+        QVector<TherionSourceTextEdit> combinedEdits;
+        QString combinedText = beforeText;
+        if (TherionDocumentEditor::lineAreaVerticesRewriteEdits(beforeText, lineNumber, rewriteKind, allMoves,
+                                                                &combinedEdits, nullptr)
+            && TherionDocumentEditor::applySourceTextEdits(&combinedText, combinedEdits, nullptr)
+            && combinedText == afterText) {
+            request.sourceEdits = std::move(combinedEdits);
+        }
     }
     sourceTransactionController(context_).applyChangeWithSnapshot(request);
     (*context_.toolbarStatusNote) = tr("Updated %1 vertex %2 at source line %3.")
