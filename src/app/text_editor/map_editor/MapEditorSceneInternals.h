@@ -431,7 +431,8 @@ protected:
     {
         if (event != nullptr
             && event->buttons().testFlag(Qt::LeftButton)
-            && QLineF(event->buttonDownScreenPos(Qt::LeftButton), event->screenPos()).length() > 0.5) {
+            && (QLineF(event->buttonDownScreenPos(Qt::LeftButton), event->screenPos()).length() > 0.5
+                || QLineF(event->buttonDownScenePos(Qt::LeftButton), event->scenePos()).length() > 0.5)) {
             dragMoved_ = true;
         }
         QGraphicsEllipseItem::mouseMoveEvent(event);
@@ -749,7 +750,8 @@ protected:
     {
         if (event != nullptr
             && event->buttons().testFlag(Qt::LeftButton)
-            && QLineF(event->buttonDownScreenPos(Qt::LeftButton), event->screenPos()).length() > 0.5) {
+            && (QLineF(event->buttonDownScreenPos(Qt::LeftButton), event->screenPos()).length() > 0.5
+                || QLineF(event->buttonDownScenePos(Qt::LeftButton), event->scenePos()).length() > 0.5)) {
             dragMoved_ = true;
         }
         QGraphicsEllipseItem::mouseMoveEvent(event);
