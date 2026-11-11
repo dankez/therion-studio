@@ -57,7 +57,7 @@ void ThreeDViewerViewportWidget::setSceneModel(const ThreeDViewerSceneModel &sce
     syncRootItem();
 }
 
-void ThreeDViewerViewportWidget::setLayerVisibility(const std::array<bool, 5> &layerVisibility)
+void ThreeDViewerViewportWidget::setLayerVisibility(const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility)
 {
     layerVisibility_ = layerVisibility;
     syncRootItem();

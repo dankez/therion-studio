@@ -8300,6 +8300,14 @@ subtype blocks</translation>
         <source>Surfaces</source>
         <translation>Povrchy</translation>
     </message>
+    <message>
+        <source>Other Lines</source>
+        <translation>Ostatné čiary</translation>
+    </message>
+    <message>
+        <source>Drawing Points</source>
+        <translation>Kreslené body</translation>
+    </message>
 </context>
 <context>
     <name>TherionStudio::ThreeDViewerTab</name>

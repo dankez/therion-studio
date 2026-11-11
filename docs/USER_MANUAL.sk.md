@@ -104,6 +104,11 @@ Po reštarte Therion Studio sa podľa možností obnoví posledný dostupný pro
 - `.th`, `thconfig`, `*.thconfig`, `thconfig.*`, `.log`, `.txt` a bežné textové súbory sa otvárajú v textovom editore.
 - Nepodporované súbory, napríklad obrázky alebo PDF, zobrazia hlásenie `Nepodporovaný súbor` a akciu `Otvoriť v externej aplikácii`.
 
+V 3D zobrazení kresby TH2 nájdete v paneli vrstiev samostatné prepínače `Steny`, `Ostatné čiary` a
+`Kreslené body`. Predvolene sú z kresby zapnuté iba steny (`line wall`). Ostatné čiary zapnite pre svahy a
+podobné prvky; kreslené body zapnite pre kamene a ďalšie bodové symboly. Hraničné čiary `border` a plochy
+zostávajú vylúčené. Prepínače nemenia zdrojovú kresbu ani nastavenie meračského polygónu.
+
 ### 3.4 Vytváranie a správa súborov
 
 Cez `Súbor -> Nový` vytvoríte neuložený `.th`, `.th2` alebo `.thconfig` dokument a cestu zvolíte pri prvom uložení. Pravým kliknutím v paneli `Súbory` možno vytvárať priečinky, vytvárať uložené `.th`, `.th2` a `.thconfig` súbory priamo v projekte, premenovať položky, duplikovať súbory, mazať položky alebo otvoriť `.th2` priamo v map editore.

@@ -12,6 +12,7 @@ class ThreeDViewerLayerListModelTest : public QObject
 private slots:
     void exposesLayerCountsAndVisibility();
     void omitsStationSubgroupsWhenOnlyOneStationClassExists();
+    void separatesDrawingLayersAndPreservesToggles();
 };
 
 void ThreeDViewerLayerListModelTest::exposesLayerCountsAndVisibility()
@@ -37,7 +38,7 @@ void ThreeDViewerLayerListModelTest::exposesLayerCountsAndVisibility()
     ThreeDViewerLayerListModel model;
     model.setSceneModel(sceneModel);
 
-    QCOMPARE(model.rowCount(), 9);
+    QCOMPARE(model.rowCount(), 11);
 
     const QModelIndex centerlineIndex = model.index(0, 0);
     QCOMPARE(model.data(centerlineIndex, Qt::DisplayRole).toString(), QStringLiteral("Centerline"));
@@ -79,7 +80,7 @@ void ThreeDViewerLayerListModelTest::omitsStationSubgroupsWhenOnlyOneStationClas
     ThreeDViewerLayerListModel model;
     model.setSceneModel(sceneModel);
 
-    QCOMPARE(model.rowCount(), 5);
+    QCOMPARE(model.rowCount(), 7);
     QCOMPARE(model.data(model.index(0, 0), Qt::DisplayRole).toString(), QStringLiteral("Centerline"));
     QCOMPARE(model.data(model.index(1, 0), Qt::DisplayRole).toString(), QStringLiteral("Underground"));
     QCOMPARE(model.data(model.index(2, 0), Qt::DisplayRole).toString(), QStringLiteral("Stations"));
@@ -88,6 +89,40 @@ void ThreeDViewerLayerListModelTest::omitsStationSubgroupsWhenOnlyOneStationClas
     QCOMPARE(model.data(model.index(4, 0), Qt::DisplayRole).toString(), QStringLiteral("Walls"));
     QVERIFY(model.layerVisible(2));
     QVERIFY(model.layerVisible(3));
+}
+
+void ThreeDViewerLayerListModelTest::separatesDrawingLayersAndPreservesToggles()
+{
+    ThreeDViewerSceneModel scene;
+    ThreeDViewerScrapPolyline wall;
+    wall.type = QStringLiteral("wall");
+    scene.scrapLinework.append(wall);
+    auto slope = wall;
+    slope.type = QStringLiteral("slope");
+    scene.scrapLinework.append(slope);
+    scene.scrapPoints.append(ThreeDViewerScrapPoint{});
+    ThreeDViewerLayerListModel model;
+    model.setSceneModel(scene);
+    using Layer = ThreeDViewerLayerListModel::Layer;
+    QVERIFY(model.layerVisible(Layer::Meshes));
+    QVERIFY(!model.layerVisible(Layer::OtherLines));
+    QVERIFY(!model.layerVisible(Layer::Points));
+    for (int row = 0; row < model.rowCount(); ++row) {
+        const auto index = model.index(row, 0);
+        const int layer = model.data(index, ThreeDViewerLayerListModel::LayerRole).toInt();
+        if (layer == int(Layer::Meshes) || layer == int(Layer::OtherLines) || layer == int(Layer::Points)) {
+            QCOMPARE(model.data(index, ThreeDViewerLayerListModel::CountRole).toInt(), 1);
+        }
+    }
+    model.setLayerVisible(Layer::OtherLines, true);
+    QVERIFY(model.layerVisible(Layer::Meshes));
+    QVERIFY(!model.layerVisible(Layer::Points));
+    model.setLayerVisible(Layer::Meshes, false);
+    model.setLayerVisible(Layer::Points, true);
+    model.setSceneModel(scene);
+    QVERIFY(!model.layerVisible(Layer::Meshes));
+    QVERIFY(model.layerVisible(Layer::OtherLines));
+    QVERIFY(model.layerVisible(Layer::Points));
 }
 
 int runThreeDViewerLayerListModelTest(int argc, char **argv)

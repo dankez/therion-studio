@@ -16,7 +16,7 @@ class ThreeDViewerLayerListModel final : public QAbstractListModel
     Q_OBJECT
 
 public:
-    static constexpr int kLayerCount = 5;
+    static constexpr int kLayerCount = 7;
 
     enum class Layer
     {
@@ -25,6 +25,8 @@ public:
         Labels = 2,
         Meshes = 3,
         Surfaces = 4,
+        OtherLines = 5,
+        Points = 6,
         Count = kLayerCount
     };
 
@@ -135,7 +137,7 @@ private:
     int layerItemCount(Layer layer) const;
 
     ThreeDViewerSceneModel sceneModel_;
-    std::array<bool, kLayerCount> layerVisibility_ = {true, true, true, true, false};
+    std::array<bool, kLayerCount> layerVisibility_ = {true, true, true, true, false, false, false};
     FeatureVisibility featureVisibility_;
     QVector<Entry> entries_;
 };

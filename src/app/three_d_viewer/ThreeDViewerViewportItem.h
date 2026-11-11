@@ -53,7 +53,7 @@ public:
     explicit ThreeDViewerViewportItem(QQuickItem *parent = nullptr);
 
     void setSceneModel(const ThreeDViewerSceneModel &sceneModel, bool fitToScene = true);
-    void setLayerVisibility(const std::array<bool, 5> &layerVisibility);
+    void setLayerVisibility(const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility);
     void setFeatureVisibility(const ThreeDViewerLayerListModel::FeatureVisibility &featureVisibility);
     void setMeshColorMode(ThreeDViewerMeshColorMode meshColorMode);
     void setCenterlineColorMode(ThreeDViewerCenterlineColorMode colorMode);
@@ -97,7 +97,7 @@ private:
             static const ThreeDViewerSceneModel kEmpty;
             return preparedScene ? preparedScene->sceneModel : kEmpty;
         }
-        std::array<bool, 5> layerVisibility = {true, true, true, true, true};
+        std::array<bool, ThreeDViewerLayerListModel::kLayerCount> layerVisibility = {true, true, true, true, true, false, false};
         ThreeDViewerLayerListModel::FeatureVisibility featureVisibility;
         ThreeDViewerMeshColorMode meshColorMode = ThreeDViewerMeshColorMode::Altitude;
         ThreeDViewerCenterlineColorMode centerlineColorMode = ThreeDViewerCenterlineColorMode::Red;
@@ -128,7 +128,7 @@ private:
 
     mutable QMutex mutex_;
     std::shared_ptr<const ThreeDViewerPreparedScene> preparedScene_;
-    std::array<bool, 5> layerVisibility_ = {true, true, true, true, true};
+    std::array<bool, ThreeDViewerLayerListModel::kLayerCount> layerVisibility_ = {true, true, true, true, true, false, false};
     ThreeDViewerLayerListModel::FeatureVisibility featureVisibility_;
     ThreeDViewerMeshColorMode meshColorMode_ = ThreeDViewerMeshColorMode::Altitude;
     ThreeDViewerCenterlineColorMode centerlineColorMode_ = ThreeDViewerCenterlineColorMode::Red;

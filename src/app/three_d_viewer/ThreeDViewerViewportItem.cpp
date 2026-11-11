@@ -38,6 +38,8 @@ constexpr int kCenterlineLayer = 0;
 constexpr int kStationsLayer = 1;
 constexpr int kLabelsLayer = 2;
 constexpr int kScrapWallsLayer = 3;
+constexpr int kOtherLinesLayer = 5;
+constexpr int kDrawingPointsLayer = 6;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kAutoRotationIntervalMs = 16;
 constexpr qint64 kMaxAutoRotationStepMs = 100;
@@ -1036,7 +1038,7 @@ bool featureEnabled(const std::array<bool, ThreeDViewerLayerListModel::kFeatureC
 }
 
 bool centerlineShotVisible(const ThreeDViewerShot &shot,
-                           const std::array<bool, 5> &layerVisibility,
+                           const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility,
                            const ThreeDViewerLayerListModel::FeatureVisibility &featureVisibility)
 {
     return layerVisibility.at(kCenterlineLayer)
@@ -1044,7 +1046,7 @@ bool centerlineShotVisible(const ThreeDViewerShot &shot,
 }
 
 QSet<quint32> visibleCenterlineStationIds(const ThreeDViewerSceneModel &sceneModel,
-                                          const std::array<bool, 5> &layerVisibility,
+                                          const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility,
                                           const ThreeDViewerLayerListModel::FeatureVisibility &featureVisibility)
 {
     QSet<quint32> stationIds;
@@ -1092,7 +1094,7 @@ bool stationFeatureFiltersActive(const ThreeDViewerSceneModel &sceneModel)
 
 bool stationVisibleForLayer(const ThreeDViewerStation &station,
                             bool filtersActive,
-                            const std::array<bool, 5> &layerVisibility,
+                            const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility,
                             const ThreeDViewerLayerListModel::FeatureVisibility &featureVisibility,
                             const QSet<quint32> &visibleCenterlineStationIds)
 {
@@ -1109,7 +1111,7 @@ bool stationVisibleForLayer(const ThreeDViewerStation &station,
 }
 
 bool stationLabelVisibleForLayer(const ThreeDViewerStation &station,
-                                 const std::array<bool, 5> &layerVisibility,
+                                 const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility,
                                  const QSet<quint32> &visibleCenterlineStationIds)
 {
     return layerVisibility.at(kLabelsLayer)
@@ -1167,7 +1169,7 @@ std::shared_ptr<const ThreeDViewerPreparedScene> buildPreparedScene(const ThreeD
 
 DeclutterLockSelection selectDeclutterLocks(const ThreeDViewerPreparedScene &preparedScene,
                                             const ThreeDViewerCamera &camera,
-                                            const std::array<bool, 5> &layerVisibility,
+                                            const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility,
                                             const ThreeDViewerLayerListModel::FeatureVisibility &featureVisibility,
                                             int viewportWidth,
                                             int viewportHeight,
@@ -1450,7 +1452,7 @@ void ThreeDViewerViewportItem::setSceneModel(const ThreeDViewerSceneModel &scene
     rebuildAutoRotationDeclutterLocks();
 }
 
-void ThreeDViewerViewportItem::setLayerVisibility(const std::array<bool, 5> &layerVisibility)
+void ThreeDViewerViewportItem::setLayerVisibility(const std::array<bool, ThreeDViewerLayerListModel::kLayerCount> &layerVisibility)
 {
     bool shouldRebuildDeclutterLock = false;
     {
@@ -1818,10 +1820,16 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
         ? stationById(preparedScene, current.measurementEndStationId)
         : nullptr;
 
-    if (current.layerVisibility.at(kScrapWallsLayer)) {
+    if (current.layerVisibility.at(kScrapWallsLayer)
+        || current.layerVisibility.at(kOtherLinesLayer)
+        || current.layerVisibility.at(kDrawingPointsLayer)) {
         QMap<qreal, QVector<QSGGeometry::ColoredPoint2D>> wallBatches;
         QVector<QPointF> dashedPoints;
         for (const ThreeDViewerScrapPolyline &line : sceneModel.scrapLinework) {
+            const int layer = line.type == QStringLiteral("wall") ? kScrapWallsLayer : kOtherLinesLayer;
+            if (!current.layerVisibility.at(layer)) {
+                continue;
+            }
             if (!line.strokeVisible || line.penStyle == Qt::NoPen || line.points.size() < 2) {
                 continue;
             }
@@ -1870,6 +1878,9 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
         }
 
         for (const auto &point : sceneModel.scrapPoints) {
+            if (!current.layerVisibility.at(kDrawingPointsLayer)) {
+                break;
+            }
             const auto projected = ThreeDViewerProjection::projectPoint(
                 camera, point.position, viewportWidth, viewportHeight, current.orthographicProjection);
             if (!projected.visible) {
@@ -2132,7 +2143,9 @@ QSGNode *ThreeDViewerViewportItem::updatePaintNode(QSGNode *oldNode, UpdatePaint
     const QPointF altitudeOrigin(20.0, double(viewportHeight) - 300.0);
     if (current.showHud) {
         const bool showAltitudeLegend = current.centerlineColorMode == ThreeDViewerCenterlineColorMode::Altitude
-            || (current.layerVisibility.at(kScrapWallsLayer)
+            || ((current.layerVisibility.at(kScrapWallsLayer)
+                 || current.layerVisibility.at(kOtherLinesLayer)
+                 || current.layerVisibility.at(kDrawingPointsLayer))
                 && current.meshColorMode == ThreeDViewerMeshColorMode::Altitude);
         if (showAltitudeLegend) {
             appendAltitudeLegend(root, window(), bounds, altitudeOrigin, current.backgroundMode, current.exportRenderScale);
@@ -2396,7 +2409,7 @@ void ThreeDViewerViewportItem::rebuildAutoRotationDeclutterLocks()
 {
     std::shared_ptr<const ThreeDViewerPreparedScene> preparedScene;
     ThreeDViewerCamera camera;
-    std::array<bool, 5> layerVisibility;
+    std::array<bool, ThreeDViewerLayerListModel::kLayerCount> layerVisibility;
     ThreeDViewerLayerListModel::FeatureVisibility featureVisibility;
     bool orthographic = false;
     {

@@ -307,6 +307,9 @@ The editor-mode layout is stable:
 - `src/app/three_d_viewer/ThreeDViewerViewportItem.*` for the QQuickItem-based GPU-backed viewport surface that renders the shared scene model through the Qt Quick scene graph
 - Map-to-3D opening passes the current source snapshot and Objects-panel hidden source lines explicitly. `TherionScrap3D` filters hidden scraps and objects before projecting line and point geometry; station anchors remain local to their owning scrap, even when anchor symbols are hidden. Opening a TH2 scopes geometry to that file, while its survey source still supplies the solved centreline.
 - 3D wall segments share vertex-colored scene-graph batches per stroke width; changing the camera does not allocate a material and node for every altitude-colored segment.
+- The layer model owns independent visibility for Walls, Other Lines, and Drawing Points. The viewport filters
+  existing typed scrap primitives before batching; only `wall` line primitives follow Walls. Other Lines and
+  Drawing Points default to hidden. Toggling layers does not reparse or mutate source or discard projected geometry.
 - Map-to-3D uses the `objectsOnly` projection path: visible lines except borders and invisible walls, and non-station point objects, are draped without building passage or area meshes. Non-wall strokes are capped at 45% of the base wall width; point outline paths reuse the TH2 symbol geometry helpers and join the same width/color batches. Passage fill generation and rendering are disabled; Map underlays are unchanged.
 - `src/app/three_d_viewer/ThreeDViewerViewportItem.*` also owns the mesh-group scene-graph material choice, currently using Qt's built-in GPU vertex-color material for shaded triangle output
 - `src/app/three_d_viewer/ThreeDViewerViewportItem.*` also owns screen-space HUD overlays such as the scene bounding box, compass, scale bar, altitude legend, hover station details, and measurement readouts

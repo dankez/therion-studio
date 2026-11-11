@@ -406,6 +406,10 @@ QString ThreeDViewerLayerListModel::layerLabel(Layer layer) const
         return tr("Walls");
     case Layer::Surfaces:
         return tr("Surfaces");
+    case Layer::OtherLines:
+        return tr("Other Lines");
+    case Layer::Points:
+        return tr("Drawing Points");
     case Layer::Count:
         break;
     }
@@ -427,8 +431,21 @@ int ThreeDViewerLayerListModel::layerItemCount(Layer layer) const
     case Layer::Labels:
         return sceneModel_.stations.size();
     case Layer::Meshes: {
-        return sceneModel_.scrapLinework.size() + sceneModel_.scrapPoints.size();
+        int count = 0;
+        for (const auto &line : sceneModel_.scrapLinework) {
+            count += line.type == QStringLiteral("wall");
+        }
+        return count;
     }
+    case Layer::OtherLines: {
+        int count = 0;
+        for (const auto &line : sceneModel_.scrapLinework) {
+            count += line.type != QStringLiteral("wall");
+        }
+        return count;
+    }
+    case Layer::Points:
+        return sceneModel_.scrapPoints.size();
     case Layer::Surfaces:
         return sceneModel_.surfaces.size();
     case Layer::Count:

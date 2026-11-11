@@ -15,6 +15,14 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
+- Verify `feat/3d-drawing-layer-visibility` in the installed viewer: Walls, Other Lines, and Drawing Points are
+  independent; only drawing walls start visible. Confirm rock/slope toggles and preserved camera/coloring on a real
+  TH2 map. This branch builds on the pending upstream-integration branch; keep its prior bulk-visibility test fix.
+- Finish manual acceptance of `feat/integrate-upstream-enhancements` on a representative map before publishing or
+  merging: overlapping scrap fade and click-through, area/border moves with undo/redo and save/reopen, neighbour
+  handles, smooth toggles, attached/detached pointer status, snapping, partial refresh, and native 3D opening.
+  The bulk-visibility regression now expects `Fade object` for shown rows, matching the specified three-state eye
+  cycle; the test expectation change was explicitly approved. Keep the existing geometry-visibility assertions.
 - Continue the approved optimization audit sequence after gamma-preview scheduling, projection-cache retention,
   scene-membership checks and prepared path-sort keys: digest reuse, completion/block drag, 3D/LOX resource limits, GitHub cancellation,
   build/resource duplication, and SQL preparation. Measure runtime improvements rather than infer speedups.

@@ -48,6 +48,8 @@ private slots:
     void rendersObjectsWithoutPassageFill_data();
     void rendersObjectsWithoutPassageFill();
     void rendersThinLinesAndPointSymbols();
+    void filtersDrawingLayers_data();
+    void filtersDrawingLayers();
 };
 
 void ThreeDViewerViewportWidgetTest::rendersThinLinesAndPointSymbols()
@@ -81,7 +83,7 @@ void ThreeDViewerViewportWidgetTest::rendersThinLinesAndPointSymbols()
         QSKIP("Custom scene-graph geometry requires a GPU backend; run this case with QT_QPA_PLATFORM=xcb.");
     }
     widget.setSceneOverlayVisibility(false, false, false);
-    widget.setLayerVisibility({false, false, false, true, false});
+    widget.setLayerVisibility({false, false, false, true, false, true, true});
     widget.setMeshColorMode(ThreeDViewerMeshColorMode::None);
     widget.setSceneModel(scene);
     widget.setOrthographicProjection(true);
@@ -106,6 +108,50 @@ void ThreeDViewerViewportWidgetTest::rendersThinLinesAndPointSymbols()
     QVERIFY2(redPixels > greenPixels * 1.5,
              qPrintable(QStringLiteral("wall %1 pixels, slope %2 pixels").arg(redPixels).arg(greenPixels)));
     QVERIFY(bluePixels > 10);
+}
+
+void ThreeDViewerViewportWidgetTest::filtersDrawingLayers_data()
+{
+    QTest::addColumn<bool>("walls");
+    QTest::addColumn<bool>("lines");
+    QTest::addColumn<bool>("points");
+    QTest::addColumn<int>("vertexCount");
+    QTest::newRow("walls-only") << true << false << false << 2;
+    QTest::newRow("other-lines-only") << false << true << false << 4;
+    QTest::newRow("points-only") << false << false << true << 6;
+    QTest::newRow("all") << true << true << true << 12;
+    QTest::newRow("none") << false << false << false << 0;
+}
+
+void ThreeDViewerViewportWidgetTest::filtersDrawingLayers()
+{
+    QFETCH(bool, walls);
+    QFETCH(bool, lines);
+    QFETCH(bool, points);
+    QFETCH(int, vertexCount);
+    ThreeDViewerSceneModel scene;
+    ThreeDViewerScrapPolyline wall;
+    wall.type = QStringLiteral("wall");
+    wall.points = {{-10, -5, 0}, {10, -5, 0}};
+    scene.scrapLinework.append(wall);
+    auto slope = wall;
+    slope.type = QStringLiteral("slope");
+    slope.points = {{-10, 5, 0}, {0, 5, 0}, {10, 5, 0}};
+    scene.scrapLinework.append(slope);
+    ThreeDViewerScrapPoint point;
+    point.symbolStrokes = {{{-8, 0}, {8, 0}}, {{0, -8}, {0, 8}}, {{-8, -8}, {8, 8}}};
+    scene.scrapPoints.append(point);
+    TestViewportItem item;
+    item.setSize(QSizeF(640, 480));
+    item.setSceneOverlayVisibility(false, false, false);
+    item.setLayerVisibility({false, false, false, walls, false, lines, points});
+    item.setSceneModel(scene);
+    std::unique_ptr<QSGNode> root(item.updatePaintNode(nullptr, nullptr));
+    int actualVertices = 0;
+    for (auto *node = root->firstChild()->nextSibling(); node; node = node->nextSibling()) {
+        actualVertices += static_cast<QSGGeometryNode *>(node)->geometry()->vertexCount();
+    }
+    QCOMPARE(actualVertices, vertexCount);
 }
 
 void ThreeDViewerViewportWidgetTest::rendersObjectsWithoutPassageFill_data()

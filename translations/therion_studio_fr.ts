@@ -7919,13 +7919,21 @@ Supprimer le sommet malgré tout ?</translation>
     </message>
     <message>
         <location filename="../src/app/three_d_viewer/ThreeDViewerLayerListModel.cpp" line="403"/>
-        <source>Meshes</source>
-        <translation>Maillages</translation>
+        <source>Walls</source>
+        <translation>Parois</translation>
     </message>
     <message>
         <location filename="../src/app/three_d_viewer/ThreeDViewerLayerListModel.cpp" line="405"/>
         <source>Surfaces</source>
         <translation>Surfaces</translation>
+    </message>
+    <message>
+        <source>Other Lines</source>
+        <translation>Autres lignes</translation>
+    </message>
+    <message>
+        <source>Drawing Points</source>
+        <translation>Points dessinés</translation>
     </message>
 </context>
 <context>

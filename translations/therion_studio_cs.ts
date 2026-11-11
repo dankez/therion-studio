@@ -8193,13 +8193,21 @@ subtype blocks</translation>
     </message>
     <message>
         <location filename="../src/app/three_d_viewer/ThreeDViewerLayerListModel.cpp" line="403"/>
-        <source>Meshes</source>
-        <translation>Modely</translation>
+        <source>Walls</source>
+        <translation>Stěny</translation>
     </message>
     <message>
         <location filename="../src/app/three_d_viewer/ThreeDViewerLayerListModel.cpp" line="405"/>
         <source>Surfaces</source>
         <translation>Povrchy</translation>
+    </message>
+    <message>
+        <source>Other Lines</source>
+        <translation>Ostatní čáry</translation>
+    </message>
+    <message>
+        <source>Drawing Points</source>
+        <translation>Kreslené body</translation>
     </message>
 </context>
 <context>
