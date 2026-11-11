@@ -682,13 +682,13 @@ TherionScrap3DModel TherionScrap3D::projectScrap(
             const double z = zOnMeshSurface(wallSurface, horizontal, fallbackZ);
             polyline3D.append({horizontal.x(), horizontal.y(), z});
         }
-        model.linework.append(ThreeDViewerScrapPolyline{
-            prepared.line->command.type,
-            prepared.line->command.subtype,
-            polyline3D,
-            prepared.line->closed,
-        });
-        model.linework.last().sourceId = prepared.line->command.id;
+        ThreeDViewerScrapPolyline polyline;
+        polyline.type = prepared.line->command.type;
+        polyline.subtype = prepared.line->command.subtype;
+        polyline.points = polyline3D;
+        polyline.closed = prepared.line->closed;
+        polyline.sourceId = prepared.line->command.id;
+        model.linework.append(std::move(polyline));
         if (prepared.line->command.type.startsWith(QLatin1String("wall"), Qt::CaseInsensitive)) {
             model.wallPolylines.append(polyline3D);
         }
@@ -708,14 +708,13 @@ TherionScrap3DModel TherionScrap3D::projectScrap(
         const QPointF horizontal = model.transform.transformPoint(point.position);
         const double fallbackZ = model.transform.interpolateZ(point.position, matchedAnchors);
         const double z = zOnMeshSurface(wallSurface, horizontal, fallbackZ);
-        model.pointFeatures.append(ThreeDViewerScrapPoint{
-            point.command.type,
-            point.command.subtype,
-            {horizontal.x(), horizontal.y(), z},
-        });
-        auto &feature = model.pointFeatures.last();
+        ThreeDViewerScrapPoint feature;
+        feature.type = point.command.type;
+        feature.subtype = point.command.subtype;
+        feature.position = {horizontal.x(), horizontal.y(), z};
         feature.text = point.command.optionsByName.value(QStringLiteral("text")).join(QLatin1Char(' '));
         feature.orientationDegrees = point.command.optionsByName.value(QStringLiteral("orientation")).value(0).toDouble();
+        model.pointFeatures.append(std::move(feature));
     }
     if (options.objectsOnly) {
         return model;

@@ -29,17 +29,17 @@ struct ThreeDViewerSurvey
 {
     quint32 id = 0;
     quint32 parentId = 0;
-    QString name;
-    QString title;
+    QString name = {};
+    QString title = {};
 };
 
 struct ThreeDViewerStation
 {
     quint32 id = 0;
     quint32 surveyId = 0;
-    QString name;
-    QString comment;
-    ThreeDViewerVec3 position;
+    QString name = {};
+    QString comment = {};
+    ThreeDViewerVec3 position = {};
     bool surface = false;
     bool entrance = false;
     bool fixed = false;
@@ -74,32 +74,32 @@ struct ThreeDViewerShot
 
 struct ThreeDViewerScrapPolyline
 {
-    QString type;
-    QString subtype;
-    QVector<ThreeDViewerVec3> points;
+    QString type = {};
+    QString subtype = {};
+    QVector<ThreeDViewerVec3> points = {};
     bool closed = false;
     bool strokeVisible = true;
     quint32 strokeColorRgba = 0;
     bool hasStrokeColor = false;
     qreal strokeWidth = 1.0;
     Qt::PenStyle penStyle = Qt::SolidLine;
-    QVector<qreal> dashPattern;
-    QString sourceId;
+    QVector<qreal> dashPattern = {};
+    QString sourceId = {};
 };
 
 struct ThreeDViewerScrapPoint
 {
-    QString type;
-    QString subtype;
-    ThreeDViewerVec3 position;
+    QString type = {};
+    QString subtype = {};
+    ThreeDViewerVec3 position = {};
     quint32 fillColorRgba = 0;
     quint32 strokeColorRgba = 0;
     bool hasFillColor = false;
     bool hasStrokeColor = false;
     qreal size = 4.0;
     qreal strokeWidth = 1.0;
-    QVector<QVector<QPointF>> symbolStrokes;
-    QString text;
+    QVector<QVector<QPointF>> symbolStrokes = {};
+    QString text = {};
     double orientationDegrees = 0.0;
 };
 
