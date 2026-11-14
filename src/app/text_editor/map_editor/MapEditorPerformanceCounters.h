@@ -9,6 +9,9 @@ namespace TherionStudio
 // tests can assert that expensive work is not repeated per event or per row.
 struct MapEditorPerformanceCounters final
 {
+    std::atomic<int> sceneFullRefreshes{0};
+    std::atomic<int> sceneGeometryPatches{0};
+    std::atomic<int> scenePatchFallbacks{0};
     // MapEditorViewportInputController::handleEvent calls for pointer events
     // delivered to the map viewport (not counting tablet->mouse forwarding).
     std::atomic<int> viewportPointerDispatches{0};
@@ -31,9 +34,12 @@ struct MapEditorPerformanceCounters final
     std::atomic<int> sceneHandleIndexExaminedEntries{0};
     // MapEditorXviBackgroundItem sketch rasterisations (vector paint passes).
     std::atomic<int> xviBackgroundRenders{0};
+    std::atomic<int> xviBackgroundLineSubmissions{0};
     // Slope decoration source metrics computed during paint.
     std::atomic<int> lineDecorationSourceMetricComputations{0};
     std::atomic<int> lineDecorationProjectionComputations{0};
+    std::atomic<int> lineDecorationSourceSampleComputations{0};
+    std::atomic<int> lineDecorationProjectedSampleComputations{0};
     std::atomic<int> screenSpaceMetricPasses{0};
     std::atomic<int> rasterGammaJobsScheduled{0};
 };

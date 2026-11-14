@@ -1520,6 +1520,30 @@ int draftInsertionEndscrapLineIndex(const TherionParsedSourceDocument &sourceDoc
 
 }
 
+TherionSourceTextEdit TherionDocumentEditor::sourceSnapshotReplacementEdit(const QString &before,
+                                                                          const QString &after)
+{
+    qsizetype prefix = 0;
+    const qsizetype limit = std::min(before.size(), after.size());
+    while (prefix < limit && before.at(prefix) == after.at(prefix)) {
+        ++prefix;
+    }
+    if (prefix > 0 && before.at(prefix - 1).isHighSurrogate()) {
+        --prefix;
+    }
+    qsizetype oldEnd = before.size();
+    qsizetype newEnd = after.size();
+    while (oldEnd > prefix && newEnd > prefix && before.at(oldEnd - 1) == after.at(newEnd - 1)) {
+        --oldEnd;
+        --newEnd;
+    }
+    if (oldEnd < before.size() && before.at(oldEnd).isLowSurrogate()) {
+        ++oldEnd;
+        ++newEnd;
+    }
+    return {int(prefix), int(oldEnd - prefix), after.mid(prefix, newEnd - prefix)};
+}
+
 bool TherionDocumentEditor::applySourceTextEdits(QString *contents,
                                                  QVector<TherionSourceTextEdit> edits,
                                                  QString *errorMessage)

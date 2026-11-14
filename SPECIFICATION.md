@@ -1103,6 +1103,11 @@ Required behavior:
 - editing actions in text and map views shall remain interactive under normal project sizes
 - map pan/zoom and selection feedback shall remain visually responsive while background work is in progress
 - release readiness shall include a documented performance verification pass on each target platform
+- TH2 drawing verification should target frames below 16 ms, click/selection feedback below 50 ms, object commits
+  below 100 ms, and undo/redo below 200 ms on a declared reference workload
+- TH2 performance verification shall distinguish input-handler time from painted/settled response time and report
+  dataset size, viewport size, display scale, rendering backend, background layers, and equivalent before/after
+  conditions; synthetic work counts alone shall not be reported as proof that latency targets have been met
 
 ### 5.1 Release Packaging and Distribution
 
@@ -1225,6 +1230,9 @@ The reimplementation should be considered functionally complete when the followi
 - Therion can be launched from inside the application and its output can be inspected
 - selection and navigation behave consistently between text and map views
 - the application remains stable and responsive on all supported platforms
+- TH2 drawing optimization preserves exact source through repeated commit/undo/redo, retained scene identities and
+  visibility for admitted partial updates, and correct source identities when unsupported updates fall back to a
+  complete scene refresh; measured responsiveness is evaluated against Section 5.2
 
 ### 8.1 Screen-Level Acceptance Criteria
 

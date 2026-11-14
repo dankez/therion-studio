@@ -27,6 +27,7 @@ MapEditorSelectionContext MapEditorTab::selectionContext()
         .pendingClickLineNumber = &selectionSyncState_.pendingClickLineNumber_,
         .pendingClickSourceVertexIndex = &selectionSyncState_.pendingClickSourceVertexIndex_,
         .pendingClickGeometryKind = &selectionSyncState_.pendingClickGeometryKind_,
+        .pendingPrimarySelectionItem = &selectionSyncState_.pendingPrimarySelectionItem_,
         .sceneRefreshSelectionLineNumber = &selectionSyncState_.sceneRefreshSelectionLineNumber_,
         .sceneRefreshSelectionVertexIndex = &selectionSyncState_.sceneRefreshSelectionVertexIndex_,
         .sceneRefreshSelectionGeometryKind = &selectionSyncState_.sceneRefreshSelectionGeometryKind_,

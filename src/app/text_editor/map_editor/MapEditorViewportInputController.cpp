@@ -537,6 +537,14 @@ bool isVertexLikeSelectionSubtype(int subtype);
 
 void clearPendingPrimarySelectionItem(MapEditorViewportInputContext &context)
 {
+    if (context.pendingPrimarySelectionItem != nullptr) {
+        if (QGraphicsItem *item = *context.pendingPrimarySelectionItem) {
+            item->setData(kMapScenePendingPrimarySelectionRole, false);
+            *context.pendingPrimarySelectionItem = nullptr;
+        }
+        return;
+    }
+
     if (context.scene == nullptr) {
         return;
     }
@@ -568,6 +576,9 @@ void describePendingClickSelection(MapEditorViewportInputContext &context, QGrap
 
     (*context.pendingClickLineNumber) = item->data(kMapSceneLineNumberRole).toInt();
     item->setData(kMapScenePendingPrimarySelectionRole, true);
+    if (context.pendingPrimarySelectionItem != nullptr) {
+        *context.pendingPrimarySelectionItem = item;
+    }
     const int subtype = item->data(kMapSceneSelectionSubtypeRole).toInt();
     if (auto *vertexItem = dynamic_cast<MapEditableGeometryVertexItem *>(item)) {
         if (subtype == kMapSceneSelectionSubtypeLineControl

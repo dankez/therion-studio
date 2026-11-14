@@ -433,9 +433,9 @@ std::optional<QPointF> slopeTickOrientationAt(const QVector<MapEditorLineDecorat
 
 std::optional<LineDecorationSample> lineDecorationSampleAt(const QPainterPath &path,
                                                            qreal distance,
-                                                           bool reversed)
+                                                           bool reversed,
+                                                           qreal pathLength)
 {
-    const qreal pathLength = path.length();
     if (pathLength <= 0.001) {
         return std::nullopt;
     }
@@ -493,6 +493,7 @@ void MapEditorLineDecorationItem::setDecorationPath(const QPainterPath &path)
     setPath(path);
     cachedPathLength_ = -1.0;
     cachedSourceMetricsValid_ = false;
+    sourceNormals_.clear();
     for (auto &entry : projectedPathCache_) {
         entry.valid = false;
     }
@@ -582,6 +583,39 @@ const QVector<MapEditorLineDecorationVertexMetric> &MapEditorLineDecorationItem:
     return cachedSourceMetrics_;
 }
 
+std::optional<QPointF> MapEditorLineDecorationItem::cachedSourceNormal(qreal distance) const
+{
+    if (const auto *normal = sourceNormals_.object(distance)) {
+        return *normal;
+    }
+    ++mapEditorPerformanceCounters().lineDecorationSourceSampleComputations;
+    const auto sample = lineDecorationSampleAt(path(), distance, reversed_, cachedPathLength());
+    const std::optional<QPointF> normal = sample ? std::optional<QPointF>(sample->normal) : std::nullopt;
+    sourceNormals_.insert(distance, new std::optional<QPointF>(normal));
+    return normal;
+}
+
+MapEditorLineDecorationItem::ProjectedSample MapEditorLineDecorationItem::cachedProjectedSample(
+    const ProjectedPathCacheEntry &cache, qsizetype polylineIndex, qreal distance) const
+{
+    const auto key = qMakePair(polylineIndex, distance);
+    if (const auto *sample = cache.samples.object(key)) {
+        return *sample;
+    }
+    ++mapEditorPerformanceCounters().lineDecorationProjectedSampleComputations;
+    const auto &points = cache.polygons.at(polylineIndex);
+    const auto &distances = cache.cumulativeDistances.at(polylineIndex);
+    const QPointF tangent = polylinePointAt(points, distances, distance + 0.5)
+        - polylinePointAt(points, distances, distance - 0.5);
+    const qreal tangentLength = std::hypot(tangent.x(), tangent.y());
+    const ProjectedSample sample{
+        polylinePointAt(points, distances, distance),
+        QPointF(tangent.y(), -tangent.x()) * (reversed_ ? -1.0 : 1.0)
+            / qMax<qreal>(1e-9, tangentLength)};
+    cache.samples.insert(key, new ProjectedSample(sample));
+    return sample;
+}
+
 const MapEditorLineDecorationItem::ProjectedPathCacheEntry &MapEditorLineDecorationItem::projectedPolygonsForProjection(
     const QTransform &projection) const
 {
@@ -609,6 +643,7 @@ const MapEditorLineDecorationItem::ProjectedPathCacheEntry &MapEditorLineDecorat
     auto &entry = projectedPathCache_[mostRecentProjection_];
     ++mapEditorPerformanceCounters().lineDecorationProjectionComputations;
     entry.polygons = projectedLinePolygons(currentPath, projection);
+    entry.samples.clear();
     entry.cumulativeDistances.clear();
     entry.cumulativeDistances.reserve(entry.polygons.size());
     for (const QPolygonF &points : entry.polygons) {
@@ -706,7 +741,7 @@ void MapEditorLineDecorationItem::paint(QPainter *painter,
     const auto &cached = projectedPolygonsForProjection(projection);
     const QPointF projectionOffset(projection.dx() - cached.transform.dx(),
                                     projection.dy() - cached.transform.dy());
-    drawDecorations(painter, zoomOutScale, projection, projectionOffset, cached.polygons, cached.cumulativeDistances);
+    drawDecorations(painter, zoomOutScale, projection, projectionOffset, cached);
 
     const bool selected = (option != nullptr && (option->state & QStyle::State_Selected))
         || data(kMapSceneInteractionSelectionRole).toBool();
@@ -716,7 +751,7 @@ void MapEditorLineDecorationItem::paint(QPainter *painter,
             ? mapEditorInteractionSelectionColor()
             : mapEditorInteractionHoverColor();
         interactionColorOverride_->setAlpha(selected ? 235 : 220);
-        drawDecorations(painter, zoomOutScale, projection, projectionOffset, cached.polygons, cached.cumulativeDistances);
+        drawDecorations(painter, zoomOutScale, projection, projectionOffset, cached);
         interactionColorOverride_.reset();
     }
     painter->restore();
@@ -724,22 +759,23 @@ void MapEditorLineDecorationItem::paint(QPainter *painter,
 
 void MapEditorLineDecorationItem::drawDecorations(
     QPainter *painter, qreal zoomOutScale, const QTransform &projection, const QPointF &projectionOffset,
-    const QList<QPolygonF> &polygons, const QVector<QVector<qreal>> &cumulativeDistances)
+    const ProjectedPathCacheEntry &cache)
 {
     if (painter == nullptr) {
         return;
     }
 
     for (const MapEditorLineDecorationStyle &decoration : decorations_) {
-        drawScreenDecoration(painter, decoration, zoomOutScale, projection, projectionOffset, polygons, cumulativeDistances);
+        drawScreenDecoration(painter, decoration, zoomOutScale, projection, projectionOffset, cache);
     }
 }
 
 void MapEditorLineDecorationItem::drawScreenDecoration(
     QPainter *painter, const MapEditorLineDecorationStyle &decoration, qreal zoomOutScale,
-    const QTransform &projection, const QPointF &projectionOffset, const QList<QPolygonF> &polygons,
-    const QVector<QVector<qreal>> &cumulativeDistances)
+    const QTransform &projection, const QPointF &projectionOffset, const ProjectedPathCacheEntry &cache)
 {
+    const auto &polygons = cache.polygons;
+    const auto &cumulativeDistances = cache.cumulativeDistances;
     const QVector<MapEditorLineDecorationVertexMetric> emptySourceMetrics;
     const auto &sourceMetrics = decoration.kind == MapEditorLineDecorationKind::SlopeTicks
         ? cachedSourceMetrics()
@@ -802,12 +838,7 @@ void MapEditorLineDecorationItem::drawScreenDecoration(
                             + std::abs(decoration.toOffset.value_or(0)) + decoration.strokeWidth);
         const QRectF clip = exposedBounds.adjusted(-margin, -margin, margin, margin);
         const auto normalAt = [&](qreal distance) {
-            const QPointF before = polylinePointAt(points, distances, distance - 0.5);
-            const QPointF after = polylinePointAt(points, distances, distance + 0.5);
-            const QPointF tangent = after - before;
-            const qreal tangentLength = std::hypot(tangent.x(), tangent.y());
-            const qreal direction = reversed_ ? -1.0 : 1.0;
-            return QPointF(tangent.y(), -tangent.x()) * direction / qMax<qreal>(1e-9, tangentLength);
+            return cachedProjectedSample(cache, polylineIndex, distance).normal;
         };
         const bool stroke = decoration.kind == MapEditorLineDecorationKind::OffsetStroke
             || decoration.kind == MapEditorLineDecorationKind::Parallel;
@@ -893,8 +924,9 @@ void MapEditorLineDecorationItem::drawScreenDecoration(
                 slope && !decoration.adjustSpacing && count == 1 ? length * 0.5
                     : startDistance + index * step, length, step, decoration, markerIndex, seed);
             const qreal offset = lineDecorationEffectiveOffset(decoration, markerIndex, seed);
-            const QPointF point = polylinePointAt(points, distances, center);
-            const QPointF normal = normalAt(center);
+            const auto sample = cachedProjectedSample(cache, polylineIndex, center);
+            const QPointF point = sample.point;
+            const QPointF normal = sample.normal;
             const QPointF tangent = QPointF(-normal.y(), normal.x()) * (reversed_ ? -1 : 1);
             switch (decoration.kind) {
             case MapEditorLineDecorationKind::Ticks:
@@ -912,9 +944,9 @@ void MapEditorLineDecorationItem::drawScreenDecoration(
             case MapEditorLineDecorationKind::SlopeTicks: {
                 const qreal sourceDistance = center / lengthScale;
                 const auto orientation = slopeTickOrientationAt(sourceMetrics, sourceDistance);
-                const auto sourceSample = sourceLengths
-                    ? lineDecorationSampleAt(path(), sourceDistance, reversed_) : std::optional<LineDecorationSample>();
-                const QPointF sceneDirection = orientation.value_or(sourceSample ? sourceSample->normal : QPointF());
+                const auto sourceNormal = sourceLengths && !orientation
+                    ? cachedSourceNormal(sourceDistance) : std::optional<QPointF>();
+                const QPointF sceneDirection = orientation.value_or(sourceNormal.value_or(QPointF()));
                 QPointF direction = orientation || sourceLengths
                     ? projection.map(sceneDirection) - projection.map(QPointF()) : normal;
                 const qreal directionScale = std::hypot(direction.x(), direction.y());

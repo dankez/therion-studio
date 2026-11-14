@@ -67,6 +67,7 @@ MapEditorSceneRefreshContext MapEditorTab::sceneRefreshContext()
         .autoFitEnabled = &autoFitEnabled_,
         .fitBackgroundRequested = &fitBackgroundRequested_,
         .sceneGeneration = &sceneGeneration_,
+        .scenePatchController = &scenePatchController_,
         .orientationApplicabilityByCommand = &orientationApplicabilityByCommand_,
         .styleCatalog = &objectStyleCatalog_,
         .logicalSource = logicalSourceContext(),

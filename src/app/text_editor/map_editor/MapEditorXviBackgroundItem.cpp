@@ -175,6 +175,8 @@ void drawExposedLines(QPainter *painter,
     }
 
     if (clipRect.contains(paintBounds)) {
+        mapEditorPerformanceCounters().xviBackgroundLineSubmissions.fetch_add(static_cast<int>(lines.size()),
+                                                                            std::memory_order_relaxed);
         painter->drawLines(lines.constData(), static_cast<int>(lines.size()));
         return;
     }
@@ -207,6 +209,8 @@ void drawExposedLines(QPainter *painter,
         }
     }
     if (!exposedLines.isEmpty()) {
+        mapEditorPerformanceCounters().xviBackgroundLineSubmissions.fetch_add(static_cast<int>(exposedLines.size()),
+                                                                            std::memory_order_relaxed);
         painter->drawLines(exposedLines.constData(), static_cast<int>(exposedLines.size()));
     }
 }
@@ -550,9 +554,15 @@ void MapEditorXviBackgroundItem::paintVector(QPainter *painter, bool hasOption, 
     if (centerlineWidth_ > 1.8) {
         exposedPadding = qMax(exposedPadding, centerlineStrokePadding(painter->worldTransform(), centerlineWidth_));
     }
-    const QRectF clipRect = (hasOption && exposedRect.isValid())
-        ? exposedRect.adjusted(-exposedPadding, -exposedPadding, exposedPadding, exposedPadding)
-        : paintBounds_;
+    QRectF exposed = hasOption && exposedRect.isValid() ? exposedRect : paintBounds_;
+    if (painter->hasClipping()) {
+        exposed = exposed.intersected(painter->clipBoundingRect());
+    }
+    if (exposed.isEmpty()) {
+        painter->restore();
+        return;
+    }
+    const QRectF clipRect = exposed.adjusted(-exposedPadding, -exposedPadding, exposedPadding, exposedPadding);
 
     if (!geometry_.passagePolygons.isEmpty()) {
         painter->setPen(Qt::NoPen);
@@ -606,6 +616,8 @@ void MapEditorXviBackgroundItem::paintVector(QPainter *painter, bool hasOption, 
         } else {
             const QVector<int> indexes = exposedLineIndexes(geometry_.traverseShotLines,
                 geometry_.traverseShotTiles, clipRect, paintBounds_, exposedPadding);
+            mapEditorPerformanceCounters().xviBackgroundLineSubmissions.fetch_add(static_cast<int>(indexes.size()),
+                                                                                std::memory_order_relaxed);
             for (const int index : indexes) {
                 const QLineF &line = geometry_.traverseShotLines.at(index);
                 const MapEditorXviTraverseColor &colors = centerlineAltitudeColors_.at(index);

@@ -22,6 +22,7 @@
 #include <QRandomGenerator>
 #include <QScreen>
 #include <QScrollBar>
+#include <QStyleOptionGraphicsItem>
 #include <QTemporaryDir>
 #include <QUndoStack>
 #include <QtTest/QtTest>
@@ -562,6 +563,32 @@ private:
     }
 
 private slots:
+    void geometryVertexIgnoresTransformOnlyWhileVisible()
+    {
+        Harness harness;
+        QVERIFY(open(harness, readFixture(QStringLiteral(
+                                  "tests/fixtures/projects/map_editor_regression/real_cave_raster/data/clopy01.th2"))));
+
+        MapEditableGeometryVertexItem *anchor = wallAnchor(harness.scene, 0);
+        QVERIFY(anchor != nullptr);
+        QVERIFY(!anchor->isVisible());
+        QVERIFY(!(anchor->flags() & QGraphicsItem::ItemIgnoresTransformations));
+
+        const QRectF probe(anchor->scenePos() - QPointF(1, 1), QSizeF(2, 2));
+        QVERIFY(MapEditorSceneHandleIndex::itemsInRect(harness.scene, probe).contains(anchor));
+        QVERIFY(!harness.scene->items(probe).contains(anchor));
+
+        anchor->setVisible(true);
+        QVERIFY(anchor->flags() & QGraphicsItem::ItemIgnoresTransformations);
+        QVERIFY(harness.scene->items(probe).contains(anchor));
+        QVERIFY(MapEditorSceneHandleIndex::itemsInRect(harness.scene, probe).contains(anchor));
+
+        anchor->setVisible(false);
+        QVERIFY(!(anchor->flags() & QGraphicsItem::ItemIgnoresTransformations));
+        QVERIFY(!harness.scene->items(probe).contains(anchor));
+        QVERIFY(MapEditorSceneHandleIndex::itemsInRect(harness.scene, probe).contains(anchor));
+    }
+
     // Proposal 3: the handle index must return exactly what the former
     // whole-scene walks saw, in the same stacking order, including hidden
     // selection-gated anchors, across moves, removals and source edits.
@@ -900,6 +927,58 @@ private slots:
         store.settle();
         drawSteps("draw-point-preview", false);
         harness.tab->triggerSelectMode();
+    }
+
+    void xviMagnifierClipLimitsSubmittedLines_data()
+    {
+        QTest::addColumn<qreal>("pixelRatio");
+        QTest::newRow("normal") << qreal(1);
+        QTest::newRow("high-dpi") << qreal(2);
+    }
+
+    void xviMagnifierClipLimitsSubmittedLines()
+    {
+        QFETCH(qreal, pixelRatio);
+        MapEditorXviLayerGeometryData geometry;
+        geometry.contentBounds = QRectF(0, 0, 100000, 200);
+        for (int i = 0; i < 10000; ++i) {
+            geometry.traverseShotLines.append(QLineF(i * 10, 0, i * 10, 200));
+        }
+        MapEditorXviBackgroundItem item;
+        item.setGeometryData(geometry);
+        QStyleOptionGraphicsItem option;
+        option.exposedRect = item.boundingRect();
+        QTransform transform;
+        transform.scale(2, 2);
+        transform.translate(-50000, -20);
+        const auto render = [&](bool reference) {
+            QImage image(QSize(168, 168) * pixelRatio, QImage::Format_ARGB32_Premultiplied);
+            image.setDevicePixelRatio(pixelRatio);
+            image.fill(Qt::white);
+            QPainter painter(&image);
+            painter.setRenderHint(QPainter::Antialiasing, true);
+            painter.setClipRect(QRectF(16, 16, 128, 128));
+            painter.setWorldTransform(transform);
+            if (reference) {
+                QPen pen(item.centerlineColor(), item.centerlineWidth(), Qt::SolidLine,
+                         Qt::RoundCap, Qt::RoundJoin);
+                pen.setCosmetic(true);
+                painter.setPen(pen);
+                painter.drawLines(geometry.traverseShotLines);
+            } else {
+                item.paint(&painter, &option);
+            }
+            painter.end();
+            return image;
+        };
+        auto &submissions = mapEditorPerformanceCounters().xviBackgroundLineSubmissions;
+        const int before = counter(submissions);
+        const QImage actual = render(false);
+        const int submitted = counter(submissions) - before;
+        QVERIFY(submitted > 0);
+        QVERIFY2(submitted < 50, qPrintable(QStringLiteral("submitted %1 of 10000 lines").arg(submitted)));
+        QCOMPARE(actual, render(true));
+        qInfo("XVI clipped render: submitted %d of 10000 lines", submitted);
     }
 
     // Proposal 4: the XVI sketch is rasterised once per camera/appearance

@@ -1564,6 +1564,8 @@ TextEditorSourceTransactionResult MapEditorCanvasEditController::applySourceText
                                                                           std::move(selectionRestoreHook));
     request.projectionInvalidationPolicy = TextEditorSourceProjectionInvalidationPolicy::CustomHook;
     request.projectionInvalidationHook = std::move(projectionInvalidationHook);
+    request.sourceEdits = {TherionDocumentEditor::sourceSnapshotReplacementEdit(beforeText, afterText)};
+    request.rebuildBlocksCanvasOnApply = false;
     return sourceTransactionController(context_).applyChangeWithSnapshot(request);
 }
 

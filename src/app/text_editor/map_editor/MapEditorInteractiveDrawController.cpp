@@ -660,31 +660,20 @@ void MapEditorInteractiveDrawController::updateInteractiveDrawPreview()
         }
     };
 
-    auto removePreviewMarkerAt = [this](int markerIndex) {
-        if (markerIndex < 0 || markerIndex >= (*context_.previewMarkers).size()) {
-            return;
-        }
-        QGraphicsItem *marker = (*context_.previewMarkers).at(markerIndex);
-        if (marker != nullptr) {
-            if (marker->scene() != nullptr) {
-                marker->scene()->removeItem(marker);
-            }
-            delete marker;
-        }
-        (*context_.previewMarkers)[markerIndex] = nullptr;
-    };
+    int ellipseMarkerCount = 0;
+    int lineMarkerCount = 0;
     auto ensurePreviewMarkerSlot = [this](int markerIndex) {
         while ((*context_.previewMarkers).size() <= markerIndex) {
             (*context_.previewMarkers).append(nullptr);
         }
     };
-    auto ensurePreviewEllipseMarker = [this, &ensurePreviewMarkerSlot, &removePreviewMarkerAt](
-                                          int markerIndex,
+    auto ensurePreviewEllipseMarker = [this, &ensurePreviewMarkerSlot, &ellipseMarkerCount](
+                                          int,
                                           const QRectF &rect) {
+        const int markerIndex = 2 * ellipseMarkerCount++;
         ensurePreviewMarkerSlot(markerIndex);
-        auto *marker = dynamic_cast<QGraphicsEllipseItem *>((*context_.previewMarkers).at(markerIndex));
+        auto *marker = static_cast<QGraphicsEllipseItem *>((*context_.previewMarkers).at(markerIndex));
         if (marker == nullptr) {
-            removePreviewMarkerAt(markerIndex);
             marker = new QGraphicsEllipseItem(rect);
             marker->setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
             marker->setAcceptedMouseButtons(Qt::NoButton);
@@ -698,13 +687,14 @@ void MapEditorInteractiveDrawController::updateInteractiveDrawPreview()
         if (marker->scene() != context_.scene) {
             context_.scene->addItem(marker);
         }
+        marker->setVisible(true);
         return marker;
     };
-    auto ensurePreviewLineMarker = [this, &ensurePreviewMarkerSlot, &removePreviewMarkerAt](int markerIndex) {
+    auto ensurePreviewLineMarker = [this, &ensurePreviewMarkerSlot, &lineMarkerCount](int) {
+        const int markerIndex = 2 * lineMarkerCount++ + 1;
         ensurePreviewMarkerSlot(markerIndex);
-        auto *marker = dynamic_cast<QGraphicsLineItem *>((*context_.previewMarkers).at(markerIndex));
+        auto *marker = static_cast<QGraphicsLineItem *>((*context_.previewMarkers).at(markerIndex));
         if (marker == nullptr) {
-            removePreviewMarkerAt(markerIndex);
             marker = new QGraphicsLineItem();
             marker->setAcceptedMouseButtons(Qt::NoButton);
             (*context_.previewMarkers)[markerIndex] = marker;
@@ -715,13 +705,17 @@ void MapEditorInteractiveDrawController::updateInteractiveDrawPreview()
         if (marker->scene() != context_.scene) {
             context_.scene->addItem(marker);
         }
+        marker->setVisible(true);
         return marker;
     };
-    auto trimPreviewMarkers = [this, &removePreviewMarkerAt](int usedMarkerCount) {
-        for (int markerIndex = (*context_.previewMarkers).size() - 1; markerIndex >= usedMarkerCount; --markerIndex) {
-            removePreviewMarkerAt(markerIndex);
+    auto trimPreviewMarkers = [this, &ellipseMarkerCount, &lineMarkerCount](int) {
+        // Even slots hold ellipses, odd slots connectors; snapping must not change their types.
+        for (int index = 0; index < (*context_.previewMarkers).size(); ++index) {
+            QGraphicsItem *marker = (*context_.previewMarkers).at(index);
+            if (marker != nullptr) {
+                marker->setVisible(index / 2 < (index % 2 == 0 ? ellipseMarkerCount : lineMarkerCount));
+            }
         }
-        (*context_.previewMarkers).resize(usedMarkerCount);
     };
 
     if (mode() != MapEditorInteractiveDrawMode::Line

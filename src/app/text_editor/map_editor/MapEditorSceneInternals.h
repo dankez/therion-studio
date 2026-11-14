@@ -819,6 +819,9 @@ protected:
         }
         MapEditorSceneHandleIndex::noteItemChange(this, change, MapEditorSceneHandleKind::GeometryVertex, lineNumber_,
                                                   [this]() { return scenePos(); });
+        if (change == QGraphicsItem::ItemVisibleHasChanged) {
+            setFlag(QGraphicsItem::ItemIgnoresTransformations, value.toBool());
+        }
         if (change == QGraphicsItem::ItemPositionHasChanged && movePreviewCallback_ != nullptr) {
             const QPointF newSourcePoint = sourcePointForPreviewPos(pos());
             movePreviewCallback_(this, lastPreviewSourcePoint_, newSourcePoint, dragActive_);

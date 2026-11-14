@@ -26,6 +26,82 @@ class MapEditorLinePreviewTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void decorationSamplesAreReusedAndInvalidated_data()
+    {
+        QTest::addColumn<bool>("explicitOrientation");
+        QTest::addColumn<bool>("reversed");
+        QTest::newRow("curve") << false << false;
+        QTest::newRow("reverse-curve") << false << true;
+        QTest::newRow("oriented-curve") << true << false;
+    }
+
+    void decorationSamplesAreReusedAndInvalidated()
+    {
+        QFETCH(bool, explicitOrientation);
+        QFETCH(bool, reversed);
+        QPainterPath path(QPointF(20, 80));
+        path.cubicTo(130, -20, 210, 180, 370, 80);
+        MapEditorLineDecorationStyle glyph;
+        glyph.kind = MapEditorLineDecorationKind::SlopeTicks;
+        glyph.spacing = 24;
+        glyph.strokeWidth = 1;
+        const std::optional<qreal> orientation = explicitOrientation
+            ? std::optional<qreal>(30) : std::nullopt;
+        const QVector<MapEditorLineDecorationVertex> vertices{
+            {QPointF(20, 80), qreal(0), orientation, qreal(8)},
+            {QPointF(370, 80), path.length(), orientation, qreal(12)}};
+        QGraphicsScene scene;
+        MapEditorLineDecorationItem item(path, {glyph}, Qt::black, reversed, 123, vertices);
+        scene.addItem(&item);
+        const auto render = [](QGraphicsScene &target, const QTransform &transform, qreal ratio) {
+            QImage image(QSize(640, 480) * ratio, QImage::Format_ARGB32_Premultiplied);
+            image.setDevicePixelRatio(ratio);
+            image.fill(Qt::white);
+            QPainter painter(&image);
+            painter.setWorldTransform(transform);
+            target.render(&painter, QRectF(0, 0, 640, 480), QRectF(0, 0, 640, 480));
+            painter.end();
+            return image;
+        };
+        auto &source = mapEditorPerformanceCounters().lineDecorationSourceSampleComputations;
+        auto &projected = mapEditorPerformanceCounters().lineDecorationProjectedSampleComputations;
+        const int sourceBefore = source.load();
+        const QImage initial = render(scene, {}, 1);
+        const int warmSource = source.load();
+        const int warmProjected = projected.load();
+        QVERIFY(warmProjected > 0);
+        if (explicitOrientation) {
+            QCOMPARE(warmSource, sourceBefore);
+        } else {
+            QVERIFY(warmSource > sourceBefore);
+        }
+        for (int i = 0; i < 10; ++i) {
+            QCOMPARE(render(scene, {}, 1), initial);
+        }
+        QCOMPARE(source.load(), warmSource);
+        QCOMPARE(projected.load(), warmProjected);
+        item.setData(kMapSceneInteractionSelectionRole, true);
+        for (qreal scale : {1.0, 2.0, 1.0}) {
+            QTransform transform = QTransform::fromScale(scale, scale);
+            transform.translate(7, 5);
+            const QImage cached = render(scene, transform, 2);
+            QGraphicsScene reference;
+            reference.addItem(new MapEditorLineDecorationItem(path, {glyph}, Qt::black, reversed, 123, vertices));
+            reference.items().first()->setData(kMapSceneInteractionSelectionRole, true);
+            QCOMPARE(cached, render(reference, transform, 2));
+        }
+        const int beforeChange = projected.load();
+        path.setElementPositionAt(1, 150, 10);
+        item.setDecorationPath(path, vertices);
+        const QImage changed = render(scene, {}, 1);
+        QVERIFY(projected.load() > beforeChange);
+        QGraphicsScene reference;
+        auto *fresh = new MapEditorLineDecorationItem(path, {glyph}, Qt::black, reversed, 123, vertices);
+        fresh->setData(kMapSceneInteractionSelectionRole, true);
+        reference.addItem(fresh);
+        QCOMPARE(changed, render(reference, {}, 1));
+    }
+
     void projectionCacheReusesPanAndMagnifier()
     {
         QPainterPath path(QPointF(20, 80));

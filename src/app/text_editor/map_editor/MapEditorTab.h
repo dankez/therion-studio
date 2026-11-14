@@ -30,6 +30,7 @@
 #include "MapEditorObjectDetailsLogic.h"
 #include "MapEditorObjectStyleCatalog.h"
 #include "MapEditorSceneGeneration.h"
+#include "MapEditorScenePatchController.h"
 #include "MapEditorSceneInteractionIndex.h"
 #include "MapEditorSmartAreaPlanner.h"
 #include "MapEditorUndoArbitrationService.h"
@@ -381,6 +382,7 @@ private:
         int pendingClickLineNumber_ = 0;
         int pendingClickSourceVertexIndex_ = -1;
         QString pendingClickGeometryKind_;
+        QGraphicsItem *pendingPrimarySelectionItem_ = nullptr;
         int pendingNavigationLineNumber_ = 0;
         int sceneRefreshSelectionLineNumber_ = 0;
         int sceneRefreshSelectionVertexIndex_ = -1;
@@ -979,6 +981,7 @@ private:
     bool inspectorTreeRebuildPending_ = false;
     bool mapSceneRefreshWhenVisiblePending_ = false;
     MapEditorSceneGeneration sceneGeneration_;
+    MapEditorScenePatchController scenePatchController_;
     MapEditorSceneInteractionIndex sceneInteractionIndex_;
     quint64 lastCompletedSceneProjectionGeneration_ = 0;
     QTimer *sourceDrivenMapRefreshTimer_ = nullptr;

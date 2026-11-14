@@ -114,6 +114,8 @@ MapEditorCanvasEditContext MapEditorTab::canvasEditContext()
         },
         .discardPendingSceneRefreshAfterCommand = [this]() {
             mapSceneRefreshPending_ = false;
+            selectionSyncState_.pendingPrimarySelectionItem_ = nullptr;
+            scenePatchController_.invalidate();
             if (altitudeUnderlayEnabled_) {
                 refreshAltitudeUnderlay();
             }

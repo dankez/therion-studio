@@ -2140,8 +2140,7 @@ MapGeometryItemGroupRenderResult renderMapGeometryItemGroupForFeature(
     // Reuse the established feature branch directly in the target scene.  Keeping
     // the per-feature indexes local prevents a partial refresh from resetting the
     // indexes owned by the complete workspace scene.
-    const QList<QGraphicsItem *> existingItems = unsortedSceneItems(scene);
-    const QSet<QGraphicsItem *> existingItemSet(existingItems.cbegin(), existingItems.cend());
+    QVector<QGraphicsItem *> createdItems;
     QHash<int, QGraphicsItem *> featureItemsByLine;
     QHash<QString, QGraphicsItem *> featureVertexItemsByKey;
     renderMapWorkspaceScene(scene,
@@ -2159,7 +2158,9 @@ MapGeometryItemGroupRenderResult renderMapGeometryItemGroupForFeature(
                             recordPointOrientationHandleChange,
                             recordLinePointLeftHandleChange,
                             styleCatalog,
-                            false);
+                            false,
+                            nullptr,
+                            &createdItems);
 
     auto isGeometryItemForFeature = [&feature](const QGraphicsItem *item) {
         return item != nullptr
@@ -2167,23 +2168,10 @@ MapGeometryItemGroupRenderResult renderMapGeometryItemGroupForFeature(
             && item->data(kMapSceneLineNumberRole).toInt() == feature.lineNumber;
     };
 
-    QList<QGraphicsItem *> itemsToRemove;
-    for (QGraphicsItem *item : unsortedSceneItems(scene)) {
-        if (item == nullptr || existingItemSet.contains(item)) {
-            continue;
-        }
+    for (QGraphicsItem *item : std::as_const(createdItems)) {
         if (isGeometryItemForFeature(item)) {
             ++result.addedItems;
-        } else {
-            // The workspace renderer adds its canvas frame. It is not part of a
-            // geometry item group and must not accumulate on partial refresh.
-            itemsToRemove.append(item);
         }
-    }
-
-    for (QGraphicsItem *item : itemsToRemove) {
-        scene->removeItem(item);
-        delete item;
     }
 
     if (mapItemsByLine != nullptr) {
@@ -2380,7 +2368,9 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
                              const std::function<void(int, qreal)> &recordPointOrientationHandleChange,
                              const std::function<void(int, int, qreal, qreal)> &recordLinePointLeftHandleChange,
                              const MapEditorObjectStyleCatalog &styleCatalog,
-                             bool renderCanvasFrame)
+                             bool renderCanvasFrame,
+                             const QVector<MapGeometryFeature> *clipGeometryFeatures,
+                             QVector<QGraphicsItem *> *createdGeometryItems)
 {
     Q_UNUSED(documentPath);
     Q_UNUSED(recordCardMove);
@@ -2431,11 +2421,15 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         : geometryBoundsForFeatures(geometryFeatures);
     const qreal mapScale = sceneCoordsScaleFactor(sourceBounds, previewBounds);
     const QHash<int, QPainterPath> scrapClipPaths =
-        scrapClipPathsForFeatures(geometryFeatures, sourceBounds, previewBounds);
+        scrapClipPathsForFeatures(clipGeometryFeatures != nullptr ? *clipGeometryFeatures : geometryFeatures,
+                                  sourceBounds, previewBounds);
     const qreal vertexRadius = 3.8;
-    auto markGeometryItem = [](QGraphicsItem *item) {
+    auto markGeometryItem = [createdGeometryItems](QGraphicsItem *item) {
         if (item != nullptr) {
             item->setData(kMapItemRole, kMapItemGeometryValue);
+            if (createdGeometryItems != nullptr) {
+                createdGeometryItems->append(item);
+            }
         }
     };
 

@@ -3,6 +3,7 @@
 #include "MapEditorObjectStyleCatalog.h"
 
 #include <QColor>
+#include <QCache>
 #include <QGraphicsPathItem>
 #include <QList>
 #include <QPainterPath>
@@ -59,31 +60,39 @@ protected:
                QWidget *widget = nullptr) override;
 
 private:
+    struct ProjectedSample
+    {
+        QPointF point;
+        QPointF normal;
+    };
+
     struct ProjectedPathCacheEntry
     {
         QTransform transform;
         QList<QPolygonF> polygons;
         QVector<QVector<qreal>> cumulativeDistances;
+        mutable QCache<QPair<qsizetype, qreal>, ProjectedSample> samples{128};
         bool valid = false;
     };
 
     void updatePaintBounds();
     qreal cachedPathLength() const;
     const QVector<MapEditorLineDecorationVertexMetric> &cachedSourceMetrics() const;
+    std::optional<QPointF> cachedSourceNormal(qreal distance) const;
+    ProjectedSample cachedProjectedSample(const ProjectedPathCacheEntry &cache,
+                                         qsizetype polylineIndex, qreal distance) const;
     const ProjectedPathCacheEntry &projectedPolygonsForProjection(const QTransform &projection) const;
     void drawDecorations(QPainter *painter,
                          qreal zoomOutScale,
                          const QTransform &projection,
                          const QPointF &projectionOffset,
-                         const QList<QPolygonF> &polygons,
-                         const QVector<QVector<qreal>> &cumulativeDistances);
+                         const ProjectedPathCacheEntry &cache);
     void drawScreenDecoration(QPainter *painter,
                               const MapEditorLineDecorationStyle &decoration,
                               qreal zoomOutScale,
                               const QTransform &projection,
                               const QPointF &projectionOffset,
-                              const QList<QPolygonF> &polygons,
-                              const QVector<QVector<qreal>> &cumulativeDistances);
+                              const ProjectedPathCacheEntry &cache);
     void drawTick(QPainter *painter,
                   const MapEditorLineDecorationStyle &decoration,
                   const QPointF &point,
@@ -122,6 +131,7 @@ private:
     mutable qreal cachedPathLength_ = -1.0;
     mutable QVector<MapEditorLineDecorationVertexMetric> cachedSourceMetrics_;
     mutable bool cachedSourceMetricsValid_ = false;
+    mutable QCache<qreal, std::optional<QPointF>> sourceNormals_{128};
 };
 
 void updateMapEditorScreenSpaceMetrics(QGraphicsScene *scene, const QTransform &viewTransform);

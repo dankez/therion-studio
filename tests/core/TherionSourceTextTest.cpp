@@ -1,5 +1,6 @@
 #include "../../src/core/TherionSourceText.h"
 #include "../../src/core/TherionStringUtils.h"
+#include "../../src/core/TherionDocumentEditor.h"
 
 #include <QString>
 #include <QStringList>
@@ -20,6 +21,8 @@ private slots:
     void matchesLegacySplitAndJoinBehavior();
     void replacesLineRangeWithoutMergingFollowingLines();
     void rejectsInvalidRanges();
+    void snapshotReplacementPreservesText_data();
+    void snapshotReplacementPreservesText();
 };
 
 void TherionSourceTextTest::roundTripsMixedPhysicalLineEndings()
@@ -129,6 +132,38 @@ void TherionSourceTextTest::rejectsInvalidRanges()
     QVERIFY(!source.replaceLineRange(4, 0, {}));
     QVERIFY(!source.replaceLineRange(2, 2, {}));
     QCOMPARE(source.toText(), QStringLiteral("a\nb\n"));
+}
+
+void TherionSourceTextTest::snapshotReplacementPreservesText_data()
+{
+    QTest::addColumn<QString>("before");
+    QTest::addColumn<QString>("after");
+    QTest::newRow("insert") << QString() << QStringLiteral("point 1 2 station\r\n");
+    QTest::newRow("remove") << QStringLiteral("point 1 2 station\r\n") << QString();
+    QTest::newRow("mixed-newlines") << QStringLiteral("# keep\r\npoint 1 2 label\r# tail\n")
+                                  << QStringLiteral("# keep\r\npoint 3 2 label\r# tail\n");
+    QTest::newRow("same-high-surrogate") << QStringLiteral("label \U0001F600 end")
+                                       << QStringLiteral("label \U0001F601 end");
+    QTest::newRow("same-low-surrogate") << QStringLiteral("label \U0001F600 end")
+                                      << QStringLiteral("label \U0002F600 end");
+    QTest::newRow("unchanged") << QStringLiteral("# keep\n") << QStringLiteral("# keep\n");
+}
+
+void TherionSourceTextTest::snapshotReplacementPreservesText()
+{
+    QFETCH(QString, before);
+    QFETCH(QString, after);
+    const auto edit = TherionStudio::TherionDocumentEditor::sourceSnapshotReplacementEdit(before, after);
+    auto splitsSurrogate = [](const QString &text, int offset) {
+        return offset > 0 && offset < text.size()
+            && text.at(offset - 1).isHighSurrogate() && text.at(offset).isLowSurrogate();
+    };
+    QVERIFY(!splitsSurrogate(before, edit.startOffset));
+    QVERIFY(!splitsSurrogate(before, edit.startOffset + edit.length));
+    QVERIFY(!splitsSurrogate(after, edit.startOffset));
+    QVERIFY(!splitsSurrogate(after, edit.startOffset + edit.replacementText.size()));
+    QVERIFY(TherionStudio::TherionDocumentEditor::applySourceTextEdits(&before, {edit}));
+    QCOMPARE(before, after);
 }
 }
 

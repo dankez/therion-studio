@@ -47,7 +47,9 @@ void MapEditorTab::updateCommandSurfaceState()
 
 void MapEditorTab::clearMapScene()
 {
+    scenePatchController_.invalidate();
     backgroundPivotMarker_ = nullptr;
+    selectionSyncState_.pendingPrimarySelectionItem_ = nullptr;
     MapEditorSceneLifecycleController(sceneLifecycleContext()).clearMapScene();
 }
 

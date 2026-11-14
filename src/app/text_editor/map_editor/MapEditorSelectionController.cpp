@@ -349,8 +349,19 @@ QList<QGraphicsItem *> expandedMapHitItemsAtScenePosition(QGraphicsScene *scene,
     return hitItems;
 }
 
-QGraphicsItem *takePendingPrimarySelectionItem(QGraphicsScene *scene)
+QGraphicsItem *takePendingPrimarySelectionItem(const MapEditorSelectionContext &context)
 {
+    if (context.pendingPrimarySelectionItem != nullptr) {
+        QGraphicsItem *item = *context.pendingPrimarySelectionItem;
+        *context.pendingPrimarySelectionItem = nullptr;
+        if (item == nullptr) {
+            return nullptr;
+        }
+        item->setData(kMapScenePendingPrimarySelectionRole, false);
+        return isInteractiveMapSelectionItem(item) ? item : nullptr;
+    }
+
+    QGraphicsScene *scene = context.scene;
     if (scene == nullptr) {
         return nullptr;
     }
@@ -727,7 +738,7 @@ void MapEditorSelectionController::handleMapSceneSelectionChanged()
         && (*context_.pendingClickElapsed).isValid()
         && (*context_.pendingClickElapsed).elapsed() <= 1000;
     if (usePendingClickSelection && (*context_.pendingClickLineNumber) > 0) {
-        if (QGraphicsItem *pendingPrimaryItem = takePendingPrimarySelectionItem(context_.scene)) {
+        if (QGraphicsItem *pendingPrimaryItem = takePendingPrimarySelectionItem(context_)) {
             if (pendingPrimaryItem->data(kMapSceneLineNumberRole).toInt() == (*context_.pendingClickLineNumber)) {
                 primarySelectedItem = pendingPrimaryItem;
             }

@@ -835,6 +835,8 @@ set(THERION_MAP_EDITOR_SOURCES
     src/app/text_editor/map_editor/MapEditorSceneLifecycleController.h
     src/app/text_editor/map_editor/MapEditorSceneRefreshController.cpp
     src/app/text_editor/map_editor/MapEditorSceneRefreshController.h
+    src/app/text_editor/map_editor/MapEditorScenePatchController.cpp
+    src/app/text_editor/map_editor/MapEditorScenePatchController.h
     src/app/text_editor/map_editor/MapEditorSelectionContext.h
     src/app/text_editor/map_editor/MapEditorSelectionController.cpp
     src/app/text_editor/map_editor/MapEditorSelectionController.h

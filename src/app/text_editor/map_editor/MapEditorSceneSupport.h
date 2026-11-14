@@ -194,6 +194,8 @@ struct MapGeometryFeature
         int endVertexIndex = -1;
         int control1VertexIndex = -1;
         int control2VertexIndex = -1;
+
+        bool operator==(const LineSegment &) const = default;
     };
     struct TH2LineVertex
     {
@@ -208,6 +210,8 @@ struct MapGeometryFeature
         int anchorSourceVertexIndex = -1;
         int incomingSourceVertexIndex = -1;
         int outgoingSourceVertexIndex = -1;
+
+        bool operator==(const TH2LineVertex &) const = default;
     };
 
     Kind kind = Kind::Point;
@@ -237,6 +241,8 @@ struct MapGeometryFeature
     QTransform mapToSourceTransform;
     QVector<LineSegment> lineSegments;
     QVector<TH2LineVertex> lineVertices;
+
+    bool operator==(const MapGeometryFeature &) const = default;
 };
 
 // Whether Therion treats the line point as smooth, from its smooth row and current handles. At a closed line's join
@@ -411,7 +417,9 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
                              const std::function<void(int, qreal)> &recordPointOrientationHandleChange,
                              const std::function<void(int, int, qreal, qreal)> &recordLinePointLeftHandleChange,
                              const MapEditorObjectStyleCatalog &styleCatalog,
-                             bool renderCanvasFrame = true);
+                             bool renderCanvasFrame = true,
+                             const QVector<MapGeometryFeature> *clipGeometryFeatures = nullptr,
+                             QVector<QGraphicsItem *> *createdGeometryItems = nullptr);
 MapGeometryItemGroupRemovalResult removeMapGeometryItemGroupForLine(QGraphicsScene *scene,
                                                                     int lineNumber,
                                                                     QHash<int, QGraphicsItem *> *mapItemsByLine,

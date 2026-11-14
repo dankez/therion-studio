@@ -89,6 +89,27 @@ The main source-model contracts are:
 - `TextEditorSourceTransactionController` and map source transaction helpers for user-visible source mutations, undo/redo,
   dirty state, revision checks, projection invalidation, and selection/cursor restoration.
 
+Map draw transactions retain complete before/after source snapshots for atomic undo ownership, but apply only a
+surrogate-safe replacement range to the text document. `TherionDocumentEditor::sourceSnapshotReplacementEdit`
+owns that deterministic range calculation; initial deferred drawing commits use the existing source-edit transaction
+path, and snapshot replay uses the same range rule without introducing a second Raw undo step.
+
+`MapEditorScenePatchController` retains the last fully published source/geometry projection and admits trailing
+Point/Line/Area additions and their removal/replay only when source bounds, non-geometry commands, and all retained
+geometry identities remain unchanged. It shares the workspace renderer, supplies full-document wall context for area
+clipping, preserves unrelated items/backgrounds, and publishes one settled scene generation. Earlier-scrap inserts,
+shifted existing identities, changed bounds/metadata, incomplete generations, and uncertain dependencies retain full
+refresh. Empty scraps with unchanged source bounds use the same insertion/replay path. Diagnostic logging records
+patch rejection reasons and preparation, scene mutation, and UI publication timings without source contents.
+Independent partial geometry edits invalidate this baseline. Preview markers use separate typed slots and hide
+surplus items until the drawing session ends; Qt item invalidation remains responsible for both old and new bounds.
+
+Line decorations retain bounded source-normal and per-projection point/normal sample caches. Source samples are
+geometry-dependent; projected samples share the existing linear-transform cache keys, with translation applied at
+paint time. Geometry changes invalidate both. XVI vector painting intersects source exposure with the painter's explicit
+clip before querying geometry tiles, including magnifier rendering. Offscreen output stays vector-painted rather than
+borrowing a viewport raster at the wrong resolution.
+
 Consumers should use shared source snapshots and logical command metadata where available:
 
 - Raw editor: highlighting, completion, context help, validation tooltips

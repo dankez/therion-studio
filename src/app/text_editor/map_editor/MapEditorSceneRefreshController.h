@@ -23,6 +23,7 @@ namespace TherionStudio
 {
 struct TherionParsedLine;
 struct MapEditorObjectStyleCatalog;
+class MapEditorScenePatchController;
 
 struct MapEditorSceneRefreshMetrics
 {
@@ -60,6 +61,7 @@ struct MapEditorSceneRefreshContext
     bool *autoFitEnabled = nullptr;
     bool *fitBackgroundRequested = nullptr;
     MapEditorSceneGeneration *sceneGeneration = nullptr;
+    MapEditorScenePatchController *scenePatchController = nullptr;
     const MapEditorOrientationApplicabilityByCommand *orientationApplicabilityByCommand = nullptr;
     const MapEditorObjectStyleCatalog *styleCatalog = nullptr;
     MapEditorLogicalSourceContext logicalSource;
@@ -100,6 +102,8 @@ struct MapEditorSceneRefreshContext
     std::function<void(quint64)> recordSceneProjectionRefreshCompleted;
     std::function<void(const MapEditorSceneRefreshMetrics &)> recordSceneRefreshMetrics;
 };
+
+bool restoreSceneRefreshSelection(const MapEditorSceneRefreshContext &context);
 
 class MapEditorSceneRefreshController final
 {

@@ -1,4 +1,6 @@
 #include "MapEditorSceneRefreshController.h"
+#include "MapEditorScenePatchController.h"
+#include "MapEditorPerformanceCounters.h"
 #include "MapEditorSceneItems.h"
 
 #include "MapEditorObjectDetailsLogic.h"
@@ -243,6 +245,7 @@ void MapEditorSceneRefreshController::refreshMapScenePreservingUndoStack(bool pr
     }
     const qint64 commandSurfaceBeforeMs = collectTiming ? stageTimer.restart() : 0;
 
+    mapEditorPerformanceCounters().sceneFullRefreshes.fetch_add(1, std::memory_order_relaxed);
     context_.clearMapScene();
     const qint64 clearMs = collectTiming ? stageTimer.restart() : 0;
 
@@ -408,6 +411,10 @@ void MapEditorSceneRefreshController::refreshMapScenePreservingUndoStack(bool pr
             .totalMs = totalMs});
     }
 
+    if (context_.scenePatchController != nullptr) {
+        context_.scenePatchController->recordProjection(
+            projectionSnapshot, context_.documentText(), geometryFeatures);
+    }
     if (context_.recordSceneProjectionRefreshCompleted) {
         context_.recordSceneProjectionRefreshCompleted(sceneGeneration);
     }
@@ -452,6 +459,9 @@ void MapEditorSceneRefreshController::flushPendingMapSceneRefreshAfterCommand()
     }
 
     *context_.sceneRefreshPending = false;
+    if (context_.scenePatchController != nullptr && context_.scenePatchController->tryApply(context_)) {
+        return;
+    }
     refreshMapScenePreservingUndoStack(true);
 }
 

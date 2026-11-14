@@ -37,6 +37,8 @@ struct TherionSourceTextEdit
 class TherionDocumentEditor final
 {
 public:
+    [[nodiscard]] static TherionSourceTextEdit sourceSnapshotReplacementEdit(const QString &before,
+                                                                            const QString &after);
     [[nodiscard]] static bool applySourceTextEdits(QString *contents,
                                                    QVector<TherionSourceTextEdit> edits,
                                                    QString *errorMessage = nullptr);

@@ -15,6 +15,23 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
+- TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
+  explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.
+  Use the opt-in `map-scene-patch` diagnostics to identify rejection reasons and separate preparation, scene, and UI
+  publication costs before widening identity-sensitive patches. The 10000-line synthetic clipped-render test submits
+  only seven lines and matches brute-force pixels at DPR 1 and 2; this proves bounded work, not a real-map latency SLA.
+  The first visibility-dependent `ItemIgnoresTransformations` cut passes focused BSP-query, handle-index,
+  interaction-performance, and drag/undo tests. Two v42 offscreen runs per magnifier mode (35,153 scene items,
+  1255x942, DPR 1, 620% zoom) show magnifier-on medians: hover 243 to 105-106 ms, pan 260 to 105-106 ms, select
+  1098 to 270-298 ms, drag 349 to 116 ms, commit 1232 to 537-597 ms, and undo 3051 to 1475-1489 ms. Magnifier-off gains
+  are smaller; the unchanged full scene refresh still dominates undo. Profiles show `QGraphicsScene::items(QRectF)`
+  falling from 31.8% to 9.6-10.0% of hover samples with the magnifier on, and from 27.3% to 7.7-8.1% with it off.
+  Runs separate event-loop/paint work from forced repaint and record magnifier paint cost. They use Qt's offscreen
+  backend, so they are not physical display frame-time measurements; the previous baseline was one run. Repeat
+  against a display-backed/manual workflow before setting a latency SLA.
+  Remaining measured follow-ups include inspector/highlighter/Blocks stage costs and real-map manual acceptance.
+  Earlier-scrap inserts and changed bounds/metadata deliberately retain full refresh; widen those paths only with
+  identity-remapping coverage and fresh measurements. Do not equate synthetic work counters with GUI latency.
 - Verify `feat/3d-drawing-layer-visibility` in the installed viewer: Walls, Other Lines, and Drawing Points are
   independent; only drawing walls start visible. Confirm rock/slope toggles and preserved camera/coloring on a real
   TH2 map. This branch builds on the pending upstream-integration branch; keep its prior bulk-visibility test fix.

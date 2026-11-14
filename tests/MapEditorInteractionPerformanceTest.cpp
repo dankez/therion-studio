@@ -3,12 +3,16 @@
 #include "../src/app/text_editor/map_editor/MapEditorSceneInternals.h"
 #include "../src/app/text_editor/map_editor/MapEditorSceneSupport.h"
 #include "../src/app/text_editor/map_editor/MapEditorTab.h"
+#include "../src/app/text_editor/map_editor/MapEditorInteractiveDrawController.h"
+#include "../src/app/text_editor/map_editor/MapEditorScrapVisibility.h"
+#include "../src/app/text_editor/TextEditorSourceRewriteController.h"
 #include "../src/core/CommandCatalogStore.h"
 #include "../src/core/QtFileSystem.h"
 #include "FakeSessionStore.h"
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QGraphicsView>
@@ -16,6 +20,7 @@
 #include <QPalette>
 #include <QPlainTextEdit>
 #include <QTextCursor>
+#include <QTextBlock>
 #include <QTemporaryDir>
 #include <QTreeView>
 #include <QUndoStack>
@@ -149,7 +154,7 @@ private:
         QUndoStack *stack = nullptr;
     };
 
-    bool open(Harness &harness)
+    bool open(Harness &harness, const QString &contents = kFixture, int firstLine = 3)
     {
         QDir().mkpath(QStringLiteral(".verification"));
         if (!harness.directory.isValid()) {
@@ -160,7 +165,7 @@ private:
         if (!file.open(QIODevice::WriteOnly)) {
             return false;
         }
-        file.write(kFixture.toUtf8());
+        file.write(contents.toUtf8());
         file.close();
         harness.tab = std::make_unique<MapEditorTab>(harness.fileSystem, harness.sessionStore, CommandCatalogStore());
         harness.tab->resize(1280, 900);
@@ -178,7 +183,8 @@ private:
         QTest::qWait(50);
         harness.tab->triggerFit();
         QTest::qWait(50);
-        return linePath(harness.view->scene(), 3) != nullptr;
+        return harness.view->scene() != nullptr
+            && (firstLine == 0 || linePath(harness.view->scene(), firstLine) != nullptr);
     }
 
     static QCheckBox *closedCheck(Harness &harness)
@@ -192,6 +198,254 @@ private:
     }
 
 private slots:
+    void previewRetainsTypedMarkerPoolAcrossSnapAndControlTransitions()
+    {
+        QGraphicsScene scene;
+        QGraphicsView view(&scene);
+        QVector<QGraphicsItem *> markers;
+        QGraphicsPathItem *path = nullptr;
+        QVector<MapEditorInteractiveLineDraftVertex> vertices(2);
+        vertices[0].anchorScene = QPointF(20, 20);
+        vertices[0].outgoingControlScene = QPointF(30, 25);
+        vertices[1].anchorScene = QPointF(60, 40);
+        vertices[1].incomingControlScene = QPointF(50, 35);
+        const auto curvedVertices = vertices;
+        QVector<QPointF> guides{QPointF(10, 10), QPointF(70, 50)};
+        const auto snapGuides = guides;
+        bool inactive = false;
+        bool hover = true;
+        bool snap = true;
+        QPointF hoverPosition(80, 60);
+        MapEditorInteractiveDrawContext context;
+        context.scene = &scene;
+        context.view = &view;
+        context.lineVertices = &vertices;
+        context.anchorPressActive = &inactive;
+        context.anchorDragActive = &inactive;
+        context.hoverActive = &hover;
+        context.hoverScenePoint = &hoverPosition;
+        context.hoverSnapActive = &snap;
+        context.hoverSnapScenePoint = &hoverPosition;
+        context.hoverSnapGuideScenePoints = &guides;
+        context.previewMarkers = &markers;
+        context.previewPath = &path;
+        context.drawMode = [] { return MapEditorInteractiveDrawMode::Line; };
+        MapEditorInteractiveDrawController controller(context);
+        controller.updateInteractiveDrawPreview();
+        const auto warmedPool = markers;
+        QVERIFY(!markers.isEmpty());
+        for (int repeat = 0; repeat != 4; ++repeat) {
+            guides.clear();
+            snap = false;
+            vertices[0].outgoingControlScene.reset();
+            vertices[1].incomingControlScene.reset();
+            controller.updateInteractiveDrawPreview();
+            QCOMPARE(markers, warmedPool);
+            QVERIFY(std::any_of(markers.cbegin(), markers.cend(), [](const auto *item) {
+                return item != nullptr && !item->isVisible();
+            }));
+            guides = snapGuides;
+            snap = true;
+            vertices = curvedVertices;
+            controller.updateInteractiveDrawPreview();
+            QCOMPARE(markers, warmedPool);
+        }
+    }
+
+    void snapshotReplayChangesOnlyTheLocalTextRange()
+    {
+        QPlainTextEdit editor;
+        const QString before = QStringLiteral("# retained block\npoint 10 20 label -text \"\U0001F600\"\n# tail\n");
+        const QString after = QStringLiteral("# retained block\npoint 10 20 label -text \"\U0001F601\"\n# tail\n");
+        editor.setPlainText(before);
+        editor.document()->firstBlock().setUserState(123);
+        QSignalSpy changes(editor.document(), &QTextDocument::contentsChange);
+        TextEditorSourceRewriteController controller({.editor = &editor});
+        for (const QString &snapshot : {after, before, after}) {
+            changes.clear();
+            controller.applySourceSnapshotForTransaction(snapshot);
+            QCOMPARE(editor.toPlainText(), snapshot);
+            QCOMPARE(editor.document()->firstBlock().userState(), 123);
+            QVERIFY(!editor.document()->isUndoAvailable());
+            QVERIFY(!editor.document()->isRedoAvailable());
+            QCOMPARE(changes.size(), 1);
+            const auto change = changes.first();
+            QVERIFY(change.at(0).toInt() > before.indexOf(QStringLiteral("point")));
+            QCOMPARE(change.at(1).toInt(), 2);
+            QCOMPARE(change.at(2).toInt(), 2);
+        }
+    }
+
+    void trailingDrawInsertAndReplayPatchTheScene_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("point") << QStringLiteral("point");
+        QTest::newRow("line") << QStringLiteral("line");
+        QTest::newRow("area") << QStringLiteral("area");
+    }
+
+    void trailingDrawInsertAndReplayPatchTheScene()
+    {
+        QFETCH(QString, kind);
+        Harness harness;
+        const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n") + kFixture;
+        QVERIFY(open(harness, before, 4));
+        auto *retained = linePath(harness.view->scene(), 4);
+        retained->setData(9999, QStringLiteral("retained"));
+        harness.tab->setMapScrapVisibilityForTest(3, MapEditorScrapVisibilityTarget::ThisScrap,
+                                                 MapEditorObjectVisibility::Faded);
+        const QTransform transform = harness.view->transform();
+        const int fullBefore = counter(mapEditorPerformanceCounters().sceneFullRefreshes);
+        const int patchBefore = counter(mapEditorPerformanceCounters().sceneGeometryPatches);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        if (kind == QStringLiteral("point")) {
+            harness.tab->triggerAddPoint();
+            click(harness.view, harness.view->mapFromScene(
+                      harness.tab->testScenePointFromSourcePosition(QPointF(45, -30))));
+        } else {
+            if (kind == QStringLiteral("area")) {
+                harness.tab->triggerAddArea();
+            } else {
+                harness.tab->triggerAddLine();
+            }
+            for (const auto &point : {QPointF(25, -25), QPointF(45, -25), QPointF(45, -45)}) {
+                MapEditorInteractiveLineDraftVertex vertex;
+                vertex.anchorSource = point;
+                vertex.anchorScene = harness.tab->testScenePointFromSourcePosition(point);
+                harness.tab->testAppendInteractiveDrawLineVertex(vertex);
+            }
+            harness.tab->triggerCompleteDraft();
+        }
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString after = harness.tab->text();
+        QVERIFY(after != before);
+        const auto projection = Th2GeometryProjection::fromText(after);
+        if (kind == QStringLiteral("point")) {
+            QVERIFY(!projection.points().isEmpty());
+        } else if (kind == QStringLiteral("area")) {
+            QVERIFY(!projection.areas().isEmpty());
+        } else {
+            QVERIFY(!projection.lines().isEmpty());
+        }
+        const int insertedLine = kind == QStringLiteral("point")
+            ? projection.points().last().command.sourceRange.startLineNumber
+            : kind == QStringLiteral("area") ? projection.areas().last().command.sourceRange.startLineNumber
+                                            : projection.lines().last().command.sourceRange.startLineNumber;
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(insertedLine));
+        QCOMPARE(harness.stack->count(), 1);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore + 1);
+        QVERIFY(!generations.isEmpty());
+        QCOMPARE(linePath(harness.view->scene(), 4)->data(9999).toString(), QStringLiteral("retained"));
+        QCOMPARE(retained->opacity(), kMapEditorFadedObjectOpacity);
+        QCOMPARE(harness.view->transform(), transform);
+
+        for (int repeat = 0; repeat != 2; ++repeat) {
+            generations.clear();
+            harness.tab->triggerUndo();
+            QTRY_VERIFY(!generations.isEmpty());
+            QCOMPARE(harness.tab->text(), before);
+            QVERIFY(!harness.tab->testHasMapSceneItemForLine(insertedLine));
+            generations.clear();
+            harness.tab->triggerRedo();
+            QTRY_VERIFY(!generations.isEmpty());
+            QCOMPARE(harness.tab->text(), after);
+            QVERIFY(harness.tab->testHasMapSceneItemForLine(insertedLine));
+        }
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore + 5);
+        QCOMPARE(linePath(harness.view->scene(), 4)->data(9999).toString(), QStringLiteral("retained"));
+        QCOMPARE(retained->opacity(), kMapEditorFadedObjectOpacity);
+        QString error;
+        QVERIFY2(harness.tab->save(&error), qPrintable(error));
+        QFile saved(harness.tab->filePath());
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(saved.readAll()), after);
+    }
+
+    void firstPointInEmptyScrapAndReplayUsePatches()
+    {
+        Harness harness;
+        const QString before = QStringLiteral(
+            "##XTHERION## xth_me_area_adjust -10 -140 270 20\n"
+            "encoding utf-8\nscrap empty -projection plan\nendscrap\n");
+        QVERIFY(open(harness, before, 0));
+        QCOMPARE(harness.tab->text(), before);
+        const auto initial = Th2GeometryProjection::fromText(before);
+        QVERIFY(initial.points().isEmpty());
+        QVERIFY(initial.lines().isEmpty());
+        const int fullBefore = counter(mapEditorPerformanceCounters().sceneFullRefreshes);
+        const int patchesBefore = counter(mapEditorPerformanceCounters().sceneGeometryPatches);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        harness.tab->triggerAddPoint();
+        click(harness.view, harness.view->mapFromScene(
+                  harness.tab->testScenePointFromSourcePosition(QPointF(45, -30))));
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString after = harness.tab->text();
+        const auto projection = Th2GeometryProjection::fromText(after);
+        QCOMPARE(projection.points().size(), 1);
+        const int insertedLine = projection.points().first().command.sourceRange.startLineNumber;
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(insertedLine));
+        QCOMPARE(harness.stack->count(), 1);
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), before);
+        QVERIFY(!harness.tab->testHasMapSceneItemForLine(insertedLine));
+        generations.clear();
+        harness.tab->triggerRedo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), after);
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(insertedLine));
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchesBefore + 3);
+    }
+
+    void earlierScrapInsertFallsBackWithoutStaleSourceIdentities()
+    {
+        Harness harness;
+        const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n")
+            + kFixture + QStringLiteral("scrap later -projection plan\npoint 30 -30 station -name A\nendscrap\n");
+        QVERIFY(open(harness, before, 4));
+        harness.tab->triggerAddLine();
+        auto *target = harness.tab->findChild<QComboBox *>(QStringLiteral("mapObjectQuickTargetScrapCombo"));
+        QVERIFY(target != nullptr);
+        const int index = target->findText(QStringLiteral("s"));
+        QVERIFY(index >= 0);
+        target->setCurrentIndex(index);
+        emit target->textActivated(target->itemText(index));
+        for (const auto &point : {QPointF(25, -25), QPointF(45, -25)}) {
+            MapEditorInteractiveLineDraftVertex vertex;
+            vertex.anchorSource = point;
+            vertex.anchorScene = harness.tab->testScenePointFromSourcePosition(point);
+            harness.tab->testAppendInteractiveDrawLineVertex(vertex);
+        }
+        const int fullBefore = counter(mapEditorPerformanceCounters().sceneFullRefreshes);
+        const int patchBefore = counter(mapEditorPerformanceCounters().sceneGeometryPatches);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        harness.tab->triggerCompleteDraft();
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString after = harness.tab->text();
+        QVERIFY(after != before);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore + 1);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore);
+        const auto projection = Th2GeometryProjection::fromText(after);
+        QCOMPARE(projection.points().size(), 1);
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(
+            projection.points().first().command.sourceRange.startLineNumber));
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), before);
+        generations.clear();
+        harness.tab->triggerRedo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), after);
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(
+            projection.points().first().command.sourceRange.startLineNumber));
+    }
+
     void draftUndoRedoDoesNotEnumerateScene()
     {
         QGraphicsScene scene;

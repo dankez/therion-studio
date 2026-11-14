@@ -56,6 +56,7 @@ struct MapEditorViewportInputContext
     int *pendingClickLineNumber = nullptr;
     int *pendingClickSourceVertexIndex = nullptr;
     QString *pendingClickGeometryKind = nullptr;
+    QGraphicsItem **pendingPrimarySelectionItem = nullptr;
     QVector<QPointF> *interactiveDrawSourceVertices = nullptr;
     QVector<QPointF> *interactiveDrawSceneVertices = nullptr;
     QVector<MapEditorInteractiveLineDraftVertex> *interactiveDrawLineVertices = nullptr;

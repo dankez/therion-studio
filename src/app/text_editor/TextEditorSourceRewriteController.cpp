@@ -151,45 +151,27 @@ void TextEditorSourceRewriteController::replaceEditorText(const QString &content
         return;
     }
 
-    if (!recordUndoStep) {
-        context_.editor->setPlainText(contents);
-        return;
-    }
-
     QTextDocument *document = context_.editor->document();
     if (document == nullptr) {
         context_.editor->setPlainText(contents);
         return;
     }
 
-    qsizetype prefixLen = 0;
-    const qsizetype minLen = std::min(currentText.size(), contents.size());
-    while (prefixLen < minLen && currentText.at(prefixLen) == contents.at(prefixLen)) {
-        ++prefixLen;
-    }
-    if (prefixLen > 0 && currentText.at(prefixLen - 1).isHighSurrogate()) {
-        --prefixLen;
-    }
+    const TherionSourceTextEdit edit = TherionDocumentEditor::sourceSnapshotReplacementEdit(currentText, contents);
 
-    qsizetype currentSuffixStart = currentText.size();
-    qsizetype newSuffixStart = contents.size();
-    while (currentSuffixStart > prefixLen
-           && newSuffixStart > prefixLen
-           && currentText.at(currentSuffixStart - 1) == contents.at(newSuffixStart - 1)) {
-        --currentSuffixStart;
-        --newSuffixStart;
+    const bool undoWasEnabled = document->isUndoRedoEnabled();
+    if (!recordUndoStep && undoWasEnabled) {
+        document->setUndoRedoEnabled(false);
     }
-    if (currentSuffixStart < currentText.size() && currentText.at(currentSuffixStart).isLowSurrogate()) {
-        ++currentSuffixStart;
-        ++newSuffixStart;
-    }
-
     QTextCursor rewriteCursor(document);
     rewriteCursor.beginEditBlock();
-    rewriteCursor.setPosition(int(prefixLen));
-    rewriteCursor.setPosition(int(currentSuffixStart), QTextCursor::KeepAnchor);
-    rewriteCursor.insertText(contents.mid(prefixLen, newSuffixStart - prefixLen));
+    rewriteCursor.setPosition(edit.startOffset);
+    rewriteCursor.setPosition(edit.startOffset + edit.length, QTextCursor::KeepAnchor);
+    rewriteCursor.insertText(edit.replacementText);
     rewriteCursor.endEditBlock();
+    if (!recordUndoStep && undoWasEnabled) {
+        document->setUndoRedoEnabled(true);
+    }
 }
 
 void TextEditorSourceRewriteController::replaceTextPreservingCursor(const QString &contents,

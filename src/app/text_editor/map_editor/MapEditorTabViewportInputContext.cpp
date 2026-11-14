@@ -63,6 +63,7 @@ MapEditorViewportInputContext MapEditorTab::viewportInputContext()
         .pendingClickLineNumber = &selectionSyncState_.pendingClickLineNumber_,
         .pendingClickSourceVertexIndex = &selectionSyncState_.pendingClickSourceVertexIndex_,
         .pendingClickGeometryKind = &selectionSyncState_.pendingClickGeometryKind_,
+        .pendingPrimarySelectionItem = &selectionSyncState_.pendingPrimarySelectionItem_,
         .interactiveDrawSourceVertices = &interactiveDrawState_.sourceVertices_,
         .interactiveDrawSceneVertices = &interactiveDrawState_.sceneVertices_,
         .interactiveDrawLineVertices = &interactiveDrawState_.lineVertices_,
