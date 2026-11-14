@@ -29,12 +29,9 @@ MapEditorMagnifierOverlay::MapEditorMagnifierOverlay(QGraphicsView *view, QWidge
     , view_(view)
 {
     setAttribute(Qt::WA_TransparentForMouseEvents, true);
-    setAttribute(Qt::WA_OpaquePaintEvent, true);
+    setAttribute(Qt::WA_NoSystemBackground, true);
     setFocusPolicy(Qt::NoFocus);
     setFixedSize(kOverlayWidth, kOverlayHeight);
-    QPainterPath maskPath;
-    maskPath.addRoundedRect(QRectF(0.0, 0.0, kOverlayWidth, kOverlayHeight), 12.0, 12.0);
-    setMask(QRegion(maskPath.toFillPolygon().toPolygon()));
     syncSceneConnection();
     hide();
 }
@@ -68,6 +65,7 @@ void MapEditorMagnifierOverlay::setView(QGraphicsView *view)
     view_ = view;
     syncSceneConnection();
     updatePlacement();
+    setOverlayActive(active_);
     update();
 }
 
@@ -99,6 +97,8 @@ void MapEditorMagnifierOverlay::setOverlayActive(bool active)
         if (shouldBeVisible) {
             raise();
             update();
+        } else {
+            cachedLensPixmap_ = QPixmap();
         }
     }
 }
@@ -154,16 +154,17 @@ void MapEditorMagnifierOverlay::paintEvent(QPaintEvent *event)
     painter.setRenderHint(QPainter::Antialiasing, true);
 
     const QPalette appPalette = palette();
-    const QColor panelColor = appPalette.color(QPalette::Window);
+    QColor panelColor = appPalette.color(QPalette::Window);
+    panelColor.setAlpha(230);
     const QColor borderColor = appPalette.color(QPalette::Mid);
     const QColor textColor = appPalette.color(QPalette::WindowText);
     QColor crosshairColor = QColor(QStringLiteral("#ffda00"));
     crosshairColor.setAlpha(220);
 
-    painter.fillRect(rect(), panelColor);
     const QRect panelRect = rect().adjusted(1, 1, -1, -1);
     QPainterPath panelPath;
     panelPath.addRoundedRect(panelRect, 12, 12);
+    painter.fillPath(panelPath, panelColor);
     painter.setPen(QPen(borderColor, 1.0));
     painter.drawPath(panelPath);
 
