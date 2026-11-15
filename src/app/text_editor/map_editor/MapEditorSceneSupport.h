@@ -58,6 +58,9 @@ constexpr int kMapSceneSegmentNeighbourVertexRole = Qt::UserRole + 133;
 constexpr int kMapSceneNeighbourControlRole = Qt::UserRole + 134;
 // Accepted mouse buttons of a faded item, kept while picking is turned off.
 constexpr int kMapSceneFadedAcceptedButtonsRole = Qt::UserRole + 135;
+constexpr int kMapSceneWallDirectionTickRole = Qt::UserRole + 136;
+constexpr int kMapSceneWallOrientationWrongRole = Qt::UserRole + 137;
+constexpr int kMapSceneOriginalPenColorRole = Qt::UserRole + 138;
 
 inline int mapSceneSegmentNeighbourVertex(const QGraphicsItem *item)
 {
@@ -253,6 +256,75 @@ inline bool lineVertexIsSmooth(const MapGeometryFeature::TH2LineVertex &vertex)
                                 vertex.anchor,
                                 vertex.incomingControl,
                                 vertex.outgoingControl);
+}
+
+inline bool isWallLineFeature(const MapGeometryFeature &feature)
+{
+    return feature.kind == MapGeometryFeature::Kind::Line
+        && feature.label.trimmed().compare(QStringLiteral("wall"), Qt::CaseInsensitive) == 0;
+}
+
+// Twice the signed shoelace area of a closed line's polygon in preview coordinates (X right, Y down).
+// Positive => clockwise on screen => unreversed direction tick points OUTSIDE; negative => INSIDE.
+inline qreal linePolygonSignedArea2(const MapGeometryFeature &feature)
+{
+    QVector<QPointF> points;
+    if (!feature.lineVertices.isEmpty()) {
+        points.reserve(feature.lineVertices.size());
+        for (const auto &vertex : feature.lineVertices) {
+            points.append(vertex.anchor);
+        }
+    } else {
+        points = feature.vertices;
+    }
+
+    const int count = points.size();
+    if (count < 3) {
+        return 0.0;
+    }
+
+    qreal area2 = 0.0;
+    for (int i = 0; i < count; ++i) {
+        const QPointF &a = points.at(i);
+        const QPointF &b = points.at((i + 1) % count);
+        area2 += (a.x() * b.y()) - (b.x() * a.y());
+    }
+    return area2;
+}
+
+// For a pillar (-outline in), the direction tick must point OUTWARD into the cave passage.
+inline bool recommendedReversedForPillar(const MapGeometryFeature &feature)
+{
+    const qreal area2 = linePolygonSignedArea2(feature);
+    if (qAbs(area2) <= 1e-6) {
+        return feature.reversed;
+    }
+    return area2 < 0.0;
+}
+
+// Detects closed wall lines whose direction tick points the wrong way for their -outline setting.
+inline bool wallOrientationLooksWrong(const MapGeometryFeature &feature)
+{
+    if (!isWallLineFeature(feature) || !feature.closed) {
+        return false;
+    }
+
+    const QString outline = feature.optionValues.value(QStringLiteral("outline")).trimmed().toLower();
+    if (outline == QStringLiteral("none")) {
+        return false;
+    }
+
+    const qreal area2 = linePolygonSignedArea2(feature);
+    if (qAbs(area2) <= 1e-6) {
+        return false;
+    }
+
+    const bool tickPointsOutward = (area2 > 0.0) ? !feature.reversed : feature.reversed;
+    if (outline == QStringLiteral("in")) {
+        return !tickPointsOutward;
+    }
+    // Default wall or -outline out: cave void is inside, so tick should point inward.
+    return tickPointsOutward;
 }
 
 struct MapLineSecondaryMove

@@ -327,6 +327,7 @@ private:
     void updateValidationRailIndicator();
     void refreshFullScreenAction();
     void setMapMagnifierEnabledForOpenTabs(bool enabled);
+    void setWallDirectionCheckEnabledForOpenTabs(bool enabled);
     bool currentDocumentHasRightPanel() const;
     bool currentDocumentRightPanelCollapsed() const;
     QString currentDocumentRightPanelLabel() const;
@@ -437,6 +438,7 @@ private:
     QAction *rightPanelCollapseAction_ = nullptr;
     QAction *contextHelpCollapseAction_ = nullptr;
     QAction *mapMagnifierAction_ = nullptr;
+    QAction *wallDirectionCheckAction_ = nullptr;
     QAction *fullScreenAction_ = nullptr;
     bool restartAfterClose_ = false;
     QTextBrowser *consoleView_ = nullptr;

@@ -15,6 +15,7 @@ MapEditorSelectionContext MapEditorTab::selectionContext()
         .sceneInteractionIndex = &sceneInteractionIndex_,
         .itemsByLine = &mapItemsByLine_,
         .hiddenObjectLines = &hiddenInspectorObjectLines_,
+        .wallDirectionCheckEnabled = &wallDirectionCheckEnabled_,
         .suppressedAutoReselectLineNumbers = &suppressedInspectorAutoReselectLineNumbers_,
         .updatingSelection = &updatingSelection_,
         .autoFitEnabled = &autoFitEnabled_,
@@ -78,6 +79,9 @@ void MapEditorTab::syncMapSelectionFromTextCursor(int lineNumber, int columnNumb
 void MapEditorTab::updateGeometrySelectionPresentation()
 {
     MapEditorSelectionController(selectionContext()).updateGeometrySelectionPresentation();
+    if (wallDirectionCheckEnabled_) {
+        applyWallDirectionCheckPresentation();
+    }
 }
 
 void MapEditorTab::selectMapLine(int lineNumber, bool centerOnSelection)

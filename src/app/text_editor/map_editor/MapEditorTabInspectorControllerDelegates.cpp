@@ -560,6 +560,33 @@ void MapEditorTab::showMapSelectionContextMenu(const QPoint &globalPosition)
             });
         }
 
+        if (objectDetailsUiState_.lineOutlineCombo_ != nullptr
+            && objectDetailsUiState_.lineOutlineRow_ != nullptr
+            && objectDetailsUiState_.lineOutlineRow_->isVisible()) {
+            QMenu *outlineMenu = objectOptionsMenu->addMenu(tr("Outline (-outline)"));
+            for (int index = 0; index < objectDetailsUiState_.lineOutlineCombo_->count(); ++index) {
+                const QString label = objectDetailsUiState_.lineOutlineCombo_->itemText(index);
+                QAction *outlineAction = outlineMenu->addAction(label);
+                outlineAction->setCheckable(true);
+                outlineAction->setChecked(index == objectDetailsUiState_.lineOutlineCombo_->currentIndex());
+                connect(outlineAction, &QAction::triggered, this, [this, index]() {
+                    if (objectDetailsUiState_.lineOutlineCombo_ != nullptr) {
+                        objectDetailsUiState_.lineOutlineCombo_->setCurrentIndex(index);
+                    }
+                    refreshObjectDetailsPanel();
+                });
+            }
+        }
+
+        if (objectDetailsUiState_.makeWallPillarButton_ != nullptr
+            && objectDetailsUiState_.makeWallPillarButton_->isVisible()) {
+            QAction *pillarAction = objectOptionsMenu->addAction(tr("Make Pillar"));
+            connect(pillarAction, &QAction::triggered, this, [this]() {
+                handleMakeWallPillarClicked();
+                refreshObjectDetailsPanel();
+            });
+        }
+
         if (objectClipAvailable) {
             QAction *clipAction = objectOptionsMenu->addAction(tr("Disable clipping (-clip off)"));
             clipAction->setCheckable(true);
@@ -857,6 +884,16 @@ void MapEditorTab::handleLineClosedToggled(bool checked)
 void MapEditorTab::handleLineReversedToggled(bool checked)
 {
     MapEditorObjectDetailsEditController(objectDetailsContext()).handleLineReversedToggled(checked);
+}
+
+void MapEditorTab::handleLineOutlineChanged()
+{
+    MapEditorObjectDetailsEditController(objectDetailsContext()).handleLineOutlineChanged();
+}
+
+void MapEditorTab::handleMakeWallPillarClicked()
+{
+    MapEditorObjectDetailsEditController(objectDetailsContext()).handleMakeWallPillarClicked();
 }
 
 void MapEditorTab::handleObjectClipDisabledToggled(bool checked)

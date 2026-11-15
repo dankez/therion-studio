@@ -35,6 +35,8 @@ public:
     void handleConfigureObjectSettingsTriggered();
     void handleLineClosedToggled(bool checked);
     void handleLineReversedToggled(bool checked);
+    void handleLineOutlineChanged();
+    void handleMakeWallPillarClicked();
     void handleObjectClipDisabledToggled(bool checked);
     void handlePointAlignChanged();
 

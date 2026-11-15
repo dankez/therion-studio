@@ -107,6 +107,9 @@ struct MapEditorObjectDetailsContext
     QWidget *quickProjectionEditor = nullptr;
     QCheckBox *lineClosedCheck = nullptr;
     QCheckBox *lineReversedCheck = nullptr;
+    QWidget *lineOutlineRow = nullptr;
+    QComboBox *lineOutlineCombo = nullptr;
+    QPushButton *makeWallPillarButton = nullptr;
     QCheckBox *objectClipDisabledCheck = nullptr;
     QWidget *pointAlignEditor = nullptr;
     QLabel *pointAlignLabel = nullptr;

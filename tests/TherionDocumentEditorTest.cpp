@@ -2671,6 +2671,41 @@ int runRewriteOrientationOptionsTest()
         return 1;
     }
 
+    QString wallContents = QStringLiteral("line wall # keep\n  0 0\n  10 0\n  10 10\n  0 10\nendline\n");
+    errorMessage.clear();
+    if (!expect(applyPlannerEdits(&wallContents, [&](const QString &source, QVector<TherionSourceTextEdit> *edits, QString *plannerError) {
+                    return TherionDocumentEditor::lineOutlineRewriteEdits(source, 1, QStringLiteral("in"), edits, plannerError);
+                }, &errorMessage),
+                errorMessage.toUtf8().constData())) {
+        return 1;
+    }
+    if (!expect(wallContents.startsWith(QStringLiteral("line wall -outline in # keep\n")),
+                "lineOutlineRewriteEdits should insert -outline in while preserving comment.")) {
+        return 1;
+    }
+
+    if (!expect(applyPlannerEdits(&wallContents, [&](const QString &source, QVector<TherionSourceTextEdit> *edits, QString *plannerError) {
+                    return TherionDocumentEditor::lineOutlineRewriteEdits(source, 1, QString(), edits, plannerError);
+                }, &errorMessage),
+                errorMessage.toUtf8().constData())) {
+        return 1;
+    }
+    if (!expect(wallContents.startsWith(QStringLiteral("line wall # keep\n")),
+                "lineOutlineRewriteEdits should remove -outline for default.")) {
+        return 1;
+    }
+
+    if (!expect(applyPlannerEdits(&wallContents, [&](const QString &source, QVector<TherionSourceTextEdit> *edits, QString *plannerError) {
+                    return TherionDocumentEditor::lineMakePillarRewriteEdits(source, 1, true, edits, plannerError);
+                }, &errorMessage),
+                errorMessage.toUtf8().constData())) {
+        return 1;
+    }
+    if (!expect(wallContents.startsWith(QStringLiteral("line wall -close on -outline in -reverse on # keep\n")),
+                "lineMakePillarRewriteEdits should set -close on, -outline in, and -reverse on in one edit.")) {
+        return 1;
+    }
+
     return 0;
 }
 

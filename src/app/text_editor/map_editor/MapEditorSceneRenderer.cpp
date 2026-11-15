@@ -2439,7 +2439,14 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         if (feature.lineVertices.size() < 2) {
             return;
         }
-        const QString featureTooltip = geometryTooltipForFeature(feature);
+        QString featureTooltip = geometryTooltipForFeature(feature);
+        const bool wallLine = isWallLineFeature(feature);
+        const bool wrongWallOrientation = wallLine && wallOrientationLooksWrong(feature);
+        if (wrongWallOrientation) {
+            featureTooltip += QStringLiteral("\n")
+                + QCoreApplication::translate("TherionStudio::MapEditorSceneRenderer",
+                                              "Warning: wall direction tick points the wrong way for its -outline.");
+        }
 
         const MapEditorResolvedLineStyle lineStyle = resolveMapEditorLineStyle(styleCatalog,
                                                                                feature.label,
@@ -2491,6 +2498,10 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         markGeometryItem(lineItem);
         lineItem->setData(kMapSceneLineNumberRole, feature.lineNumber);
         lineItem->setData(kMapSceneLineTypeRole, feature.label.trimmed().toLower());
+        if (wrongWallOrientation) {
+            lineItem->setData(kMapSceneWallOrientationWrongRole, true);
+            lineItem->setData(kMapSceneOriginalPenColorRole, baseLineStroke);
+        }
         auto styledLineItems = std::make_shared<QVector<StyledPathItemBinding>>();
         auto styledDecorationItems = std::make_shared<QVector<StyledLineDecorationBinding>>();
         auto styledGuideItems = std::make_shared<QVector<StyledPathItemBinding>>();
@@ -2517,6 +2528,10 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
                 markGeometryItem(segmentItem);
                 segmentItem->setData(kMapSceneLineNumberRole, feature.lineNumber);
                 segmentItem->setData(kMapSceneLineTypeRole, feature.label.trimmed().toLower());
+                if (wrongWallOrientation) {
+                    segmentItem->setData(kMapSceneWallOrientationWrongRole, true);
+                    segmentItem->setData(kMapSceneOriginalPenColorRole, segmentStroke);
+                }
                 styledLineItems->append(StyledPathItemBinding{styledPathIndex, segmentItem});
             }
         }
@@ -2624,6 +2639,13 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         directionTickItem->setData(kMapSceneLineNumberRole, feature.lineNumber);
         directionTickItem->setData(kMapSceneSelectionGatedRole, true);
         directionTickItem->setData(kMapSceneSelectionSubtypeRole, kMapSceneSelectionSubtypeLineDetail);
+        if (wallLine) {
+            directionTickItem->setData(kMapSceneWallDirectionTickRole, true);
+            if (wrongWallOrientation) {
+                directionTickItem->setData(kMapSceneWallOrientationWrongRole, true);
+                directionTickItem->setData(kMapSceneOriginalPenColorRole, mapEditorDirectionTickColor());
+            }
+        }
         directionTickItem->setVisible(false);
         if (const std::optional<QLineF> tickLine = lineDirectionTickLineForFeature(feature,
                                                                                    sourceBounds,

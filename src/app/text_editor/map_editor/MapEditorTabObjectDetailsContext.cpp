@@ -4,11 +4,16 @@
 #include "../TextEditorTab.h"
 #include "../../../core/ISessionStore.h"
 
+#include <QComboBox>
+#include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QTabWidget>
+#include <QVBoxLayout>
 
 namespace TherionStudio
 {
@@ -721,6 +726,9 @@ MapEditorObjectDetailsContext MapEditorTab::objectDetailsContext()
         .quickProjectionEditor = objectDetailsUiState_.objectQuickProjectionEditor_,
         .lineClosedCheck = objectDetailsUiState_.lineClosedCheck_,
         .lineReversedCheck = objectDetailsUiState_.lineReversedCheck_,
+        .lineOutlineRow = objectDetailsUiState_.lineOutlineRow_,
+        .lineOutlineCombo = objectDetailsUiState_.lineOutlineCombo_,
+        .makeWallPillarButton = objectDetailsUiState_.makeWallPillarButton_,
         .objectClipDisabledCheck = objectDetailsUiState_.objectClipDisabledCheck_,
         .pointAlignEditor = objectDetailsUiState_.pointAlignEditor_,
         .pointAlignLabel = objectDetailsUiState_.pointAlignLabel_,
@@ -851,5 +859,32 @@ MapEditorObjectDetailsContext MapEditorTab::objectDetailsContext()
             return setLineVertexControlHandleForSelection(incoming, enabled);
         },
     };
+}
+
+void MapEditorTab::buildLineOutlineAndPillarControls(QVBoxLayout *lineOptionsLayout)
+{
+    objectDetailsUiState_.lineOutlineRow_ = new QWidget(objectDetailsUiState_.lineOptionsEditor_);
+    objectDetailsUiState_.lineOutlineRow_->setObjectName(QStringLiteral("mapLineOutlineRow"));
+    auto *lineOutlineLayout = new QHBoxLayout(objectDetailsUiState_.lineOutlineRow_);
+    lineOutlineLayout->setContentsMargins(0, 0, 0, 0);
+    lineOutlineLayout->setSpacing(6);
+    auto *lineOutlineLabel = new QLabel(tr("Outline (-outline)"), objectDetailsUiState_.lineOutlineRow_);
+    objectDetailsUiState_.lineOutlineCombo_ = new QComboBox(objectDetailsUiState_.lineOutlineRow_);
+    objectDetailsUiState_.lineOutlineCombo_->setObjectName(QStringLiteral("mapLineOutlineCombo"));
+    objectDetailsUiState_.lineOutlineCombo_->addItem(tr("Default"), QString());
+    objectDetailsUiState_.lineOutlineCombo_->addItem(tr("Out (out)"), QStringLiteral("out"));
+    objectDetailsUiState_.lineOutlineCombo_->addItem(tr("In (in)"), QStringLiteral("in"));
+    objectDetailsUiState_.lineOutlineCombo_->addItem(tr("None (none)"), QStringLiteral("none"));
+    lineOutlineLayout->addWidget(lineOutlineLabel);
+    lineOutlineLayout->addWidget(objectDetailsUiState_.lineOutlineCombo_, 1);
+    objectDetailsUiState_.makeWallPillarButton_ = new QPushButton(tr("Make Pillar"), objectDetailsUiState_.lineOptionsEditor_);
+    objectDetailsUiState_.makeWallPillarButton_->setObjectName(QStringLiteral("mapMakeWallPillarButton"));
+    objectDetailsUiState_.makeWallPillarButton_->setToolTip(tr("Close wall, set -outline in, and orient ticks outward into the passage"));
+    connect(objectDetailsUiState_.lineOutlineCombo_, &QComboBox::currentIndexChanged, this, [this](int) {
+        handleLineOutlineChanged();
+    });
+    connect(objectDetailsUiState_.makeWallPillarButton_, &QPushButton::clicked, this, &MapEditorTab::handleMakeWallPillarClicked);
+    lineOptionsLayout->addWidget(objectDetailsUiState_.lineOutlineRow_);
+    lineOptionsLayout->addWidget(objectDetailsUiState_.makeWallPillarButton_);
 }
 }

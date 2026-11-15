@@ -624,6 +624,112 @@ void MapEditorObjectDetailsEditController::handleLineReversedToggled(bool checke
                                            });
 }
 
+void MapEditorObjectDetailsEditController::handleLineOutlineChanged()
+{
+    if (*context_.updatingUi
+        || context_.textEditor == nullptr
+        || context_.lineOutlineCombo == nullptr
+        || *context_.selectedObjectLineNumber <= 0
+        || *context_.selectedObjectKind != QStringLiteral("line")) {
+        return;
+    }
+
+    const int targetLineNumber = *context_.selectedObjectLineNumber;
+    const QString outline = context_.lineOutlineCombo->currentData().toString().trimmed().toLower();
+    const QString beforeText = context_.textEditor->text();
+    QString afterText = beforeText;
+    QString errorMessage;
+    QVector<TherionSourceTextEdit> sourceEdits;
+    if (!TherionDocumentEditor::lineOutlineRewriteEdits(afterText,
+                                                        targetLineNumber,
+                                                        outline,
+                                                        &sourceEdits,
+                                                        &errorMessage)
+        || !applySourceTextEdits(&afterText, sourceEdits, &errorMessage)) {
+        *context_.toolbarStatusNote = errorMessage.isEmpty()
+            ? tr("Failed to update line outline.")
+            : tr("Failed to update line outline: %1").arg(errorMessage);
+        context_.refreshToolbarSummary();
+        context_.refreshObjectDetailsPanel();
+        return;
+    }
+
+    if (afterText == beforeText) {
+        return;
+    }
+
+    if (!requireSourceTransaction(context_, tr("Cannot update line outline without map source transaction support."))) {
+        return;
+    }
+    const MapEditorObjectDetailsContext context = context_;
+    applySourceTransactionWithOptionalHook(context_,
+                                           tr("Edit Line Outline"),
+                                           beforeText,
+                                           afterText,
+                                           targetLineNumber,
+                                           [context, targetLineNumber]() {
+                                               if (context.selectMapLine) {
+                                                   context.selectMapLine(targetLineNumber, false);
+                                               }
+                                               context.refreshObjectDetailsPanel();
+                                           });
+}
+
+void MapEditorObjectDetailsEditController::handleMakeWallPillarClicked()
+{
+    if (*context_.updatingUi
+        || context_.textEditor == nullptr
+        || *context_.selectedObjectLineNumber <= 0
+        || *context_.selectedObjectKind != QStringLiteral("line")) {
+        return;
+    }
+
+    const int targetLineNumber = *context_.selectedObjectLineNumber;
+    const QString beforeText = context_.textEditor->text();
+    const std::optional<MapGeometryFeature> lineFeature = lineFeatureForLineNumber(beforeText, targetLineNumber);
+    if (!lineFeature.has_value() || !isWallLineFeature(*lineFeature)) {
+        return;
+    }
+
+    const bool reversed = recommendedReversedForPillar(*lineFeature);
+    QString afterText = beforeText;
+    QString errorMessage;
+    QVector<TherionSourceTextEdit> sourceEdits;
+    if (!TherionDocumentEditor::lineMakePillarRewriteEdits(afterText,
+                                                           targetLineNumber,
+                                                           reversed,
+                                                           &sourceEdits,
+                                                           &errorMessage)
+        || !applySourceTextEdits(&afterText, sourceEdits, &errorMessage)) {
+        *context_.toolbarStatusNote = errorMessage.isEmpty()
+            ? tr("Failed to convert wall to pillar.")
+            : tr("Failed to convert wall to pillar: %1").arg(errorMessage);
+        context_.refreshToolbarSummary();
+        context_.refreshObjectDetailsPanel();
+        return;
+    }
+
+    if (afterText == beforeText) {
+        return;
+    }
+
+    if (!requireSourceTransaction(context_, tr("Cannot convert wall to pillar without map source transaction support."))) {
+        return;
+    }
+    const MapEditorObjectDetailsContext context = context_;
+    applySourceTransactionWithOptionalHook(context_,
+                                           tr("Make Wall Pillar"),
+                                           beforeText,
+                                           afterText,
+                                           targetLineNumber,
+                                           [context, targetLineNumber]() {
+                                               if (context.selectMapLine) {
+                                                   context.selectMapLine(targetLineNumber, false);
+                                               }
+                                               context.refreshObjectDetailsPanel();
+                                           });
+}
+
 void MapEditorObjectDetailsEditController::handleObjectClipDisabledToggled(bool checked)
 {
     if (*context_.updatingUi

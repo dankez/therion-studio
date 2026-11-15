@@ -8630,4 +8630,35 @@ subtype blocks</translation>
 <message><source>Passage outlines: %1 of %2 scraps rendered; missing or ambiguous boundaries are not filled.</source><translation>Obrysy chodeb: vykresleno %1 z %2 scrapů; chybějící nebo nejednoznačné hranice se nevyplňují.</translation></message>
 <message><source>Passage outlines: %1 precise, %2 approximate, %3 unfilled.</source><translation>Obrysy chodeb: %1 přesných, %2 přibližných, %3 nevyplněných.</translation></message>
 </context>
+<context><name>TherionStudio::TherionDocumentEditor</name>
+<message><source>Unsupported line outline value.</source><translation>Nepodporovaná hodnota obrysu čáry (-outline).</translation></message>
+<message><source>Outline is available only for line commands.</source><translation>Obrys (-outline) je dostupný pouze pro příkazy line.</translation></message>
+<message><source>The selected line outline option could not be rewritten.</source><translation>Vybranou volbu obrysu čáry (-outline) se nepodařilo přepsat.</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorTab</name>
+<message><source>Outline (-outline)</source><translation>Obrys (-outline)</translation></message>
+<message><source>Out (out)</source><translation>Vnější (out)</translation></message>
+<message><source>In (in)</source><translation>Vnitřní / pilíř (in)</translation></message>
+<message><source>None (none)</source><translation>Žádný (none)</translation></message>
+<message><source>Make Pillar</source><translation>Udělat pilíř</translation></message>
+<message><source>Close wall, set -outline in, and orient ticks outward into the passage</source><translation>Uzavřít stěnu, nastavit -outline in a nasměrovat čárky ven do chodby</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorObjectDetailsEditController</name>
+<message><source>Failed to update line outline.</source><translation>Nepodařilo se aktualizovat obrys čáry.</translation></message>
+<message><source>Failed to update line outline: %1</source><translation>Nepodařilo se aktualizovat obrys čáry: %1</translation></message>
+<message><source>Cannot update line outline without map source transaction support.</source><translation>Nelze aktualizovat obrys čáry bez podpory zdrojových transakcí mapy.</translation></message>
+<message><source>Edit Line Outline</source><translation>Upravit obrys čáry</translation></message>
+<message><source>Failed to convert wall to pillar.</source><translation>Nepodařilo se převést stěnu na pilíř.</translation></message>
+<message><source>Failed to convert wall to pillar: %1</source><translation>Nepodařilo se převést stěnu na pilíř: %1</translation></message>
+<message><source>Cannot convert wall to pillar without map source transaction support.</source><translation>Nelze převést stěnu na pilíř bez podpory zdrojových transakcí mapy.</translation></message>
+<message><source>Make Wall Pillar</source><translation>Převést stěnu na pilíř</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorSceneRenderer</name>
+<message><source>Warning: wall direction tick points the wrong way for its -outline.</source><translation>Varování: směrová čárka stěny směřuje opačně vzhledem k jejímu -outline.</translation></message>
+</context>
+<context><name>MainWindow</name>
+<message><source>Show direction ticks for all walls and highlight walls with suspicious orientation.</source><translation>Zobrazit směrové čárky u všech stěn a zvýraznit stěny s podezřelou orientací.</translation></message>
+<message><source>Hide Wall Direction Check</source><translation>Skrýt kontrolu směru stěn</translation></message>
+<message><source>Check Wall Directions</source><translation>Zkontrolovat směry stěn</translation></message>
+</context>
 </TS>

@@ -2512,6 +2512,71 @@ int runSmartAreaCandidatePlannerTest()
 }
 }
 
+int runWallOrientationAndPillarReverseTest()
+{
+    auto makeClosedSquare = [](bool clockwiseOnScreen, const QString &outline, bool reversed) {
+        MapGeometryFeature feature;
+        feature.kind = MapGeometryFeature::Kind::Line;
+        feature.label = QStringLiteral("wall");
+        feature.closed = true;
+        feature.reversed = reversed;
+        if (!outline.isEmpty()) {
+            feature.optionValues.insert(QStringLiteral("outline"), outline);
+        }
+        const QVector<QPointF> pts = clockwiseOnScreen
+            ? QVector<QPointF>{QPointF(0, 0), QPointF(10, 0), QPointF(10, 10), QPointF(0, 10)}
+            : QVector<QPointF>{QPointF(0, 0), QPointF(0, 10), QPointF(10, 10), QPointF(10, 0)};
+        for (const QPointF &pt : pts) {
+            MapGeometryFeature::TH2LineVertex v;
+            v.anchor = pt;
+            feature.lineVertices.append(v);
+        }
+        return feature;
+    };
+
+    if (!expect(linePolygonSignedArea2(makeClosedSquare(true, QString(), false)) > 0.0,
+                "Expected clockwise screen square to have positive signed area.")) {
+        return 1;
+    }
+    if (!expect(!recommendedReversedForPillar(makeClosedSquare(true, QStringLiteral("in"), false)),
+                "Expected clockwise pillar to not need -reverse.")
+        || !expect(recommendedReversedForPillar(makeClosedSquare(false, QStringLiteral("in"), false)),
+                   "Expected counter-clockwise pillar to need -reverse.")) {
+        return 1;
+    }
+    if (!expect(!wallOrientationLooksWrong(makeClosedSquare(true, QStringLiteral("in"), false)),
+                "Expected CW -outline in unreversed wall to be valid.")
+        || !expect(wallOrientationLooksWrong(makeClosedSquare(true, QStringLiteral("in"), true)),
+                   "Expected CW -outline in reversed wall to be flagged wrong.")
+        || !expect(!wallOrientationLooksWrong(makeClosedSquare(false, QStringLiteral("in"), true)),
+                   "Expected CCW -outline in reversed wall to be valid.")
+        || !expect(wallOrientationLooksWrong(makeClosedSquare(false, QStringLiteral("in"), false)),
+                   "Expected CCW -outline in unreversed wall to be flagged wrong.")) {
+        return 1;
+    }
+    if (!expect(wallOrientationLooksWrong(makeClosedSquare(true, QString(), false)),
+                "Expected CW default closed wall without -reverse to be flagged wrong.")
+        || !expect(!wallOrientationLooksWrong(makeClosedSquare(true, QString(), true)),
+                   "Expected CW default closed wall with -reverse to be valid.")
+        || !expect(wallOrientationLooksWrong(makeClosedSquare(true, QStringLiteral("out"), false)),
+                   "Expected CW -outline out closed wall without -reverse to be flagged wrong.")
+        || !expect(!wallOrientationLooksWrong(makeClosedSquare(true, QStringLiteral("out"), true)),
+                   "Expected CW -outline out closed wall with -reverse to be valid.")) {
+        return 1;
+    }
+    if (!expect(!wallOrientationLooksWrong(makeClosedSquare(true, QStringLiteral("none"), false)),
+                "Expected -outline none wall never to be flagged wrong.")) {
+        return 1;
+    }
+    MapGeometryFeature openWall = makeClosedSquare(true, QStringLiteral("in"), true);
+    openWall.closed = false;
+    if (!expect(!wallOrientationLooksWrong(openWall),
+                "Expected open wall never to be flagged wrong.")) {
+        return 1;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -2628,6 +2693,9 @@ int main(int argc, char **argv)
         return rc;
     }
     if (const int rc = runSmartAreaCandidatePlannerTest(); rc != 0) {
+        return rc;
+    }
+    if (const int rc = runWallOrientationAndPillarReverseTest(); rc != 0) {
         return rc;
     }
 

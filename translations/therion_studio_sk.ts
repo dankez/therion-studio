@@ -8973,4 +8973,35 @@ Ukončiť bez zálohy na GitHub?</translation></message>
 <message><source>GitHub</source><translation>GitHub</translation></message>
 <message><source>Upload a project backup to GitHub</source><translation>Odoslať zálohu projektu na GitHub</translation></message>
 </context>
+<context><name>TherionStudio::TherionDocumentEditor</name>
+<message><source>Unsupported line outline value.</source><translation>Nepodporovaná hodnota obrysu čiary (-outline).</translation></message>
+<message><source>Outline is available only for line commands.</source><translation>Obrys (-outline) je dostupný len pre príkazy line.</translation></message>
+<message><source>The selected line outline option could not be rewritten.</source><translation>Vybranú voľbu obrysu čiary (-outline) sa nepodarilo prepísať.</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorTab</name>
+<message><source>Outline (-outline)</source><translation>Obrys (-outline)</translation></message>
+<message><source>Out (out)</source><translation>Vonkajší (out)</translation></message>
+<message><source>In (in)</source><translation>Vnútorný / pilier (in)</translation></message>
+<message><source>None (none)</source><translation>Žiadny (none)</translation></message>
+<message><source>Make Pillar</source><translation>Urobiť pilier</translation></message>
+<message><source>Close wall, set -outline in, and orient ticks outward into the passage</source><translation>Uzavrieť stenu, nastaviť -outline in a nasmerovať čiarky von do chodby</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorObjectDetailsEditController</name>
+<message><source>Failed to update line outline.</source><translation>Nepodarilo sa aktualizovať obrys čiary.</translation></message>
+<message><source>Failed to update line outline: %1</source><translation>Nepodarilo sa aktualizovať obrys čiary: %1</translation></message>
+<message><source>Cannot update line outline without map source transaction support.</source><translation>Nie je možné aktualizovať obrys čiary bez podpory zdrojových transakcií mapy.</translation></message>
+<message><source>Edit Line Outline</source><translation>Upraviť obrys čiary</translation></message>
+<message><source>Failed to convert wall to pillar.</source><translation>Nepodarilo sa previesť stenu na pilier.</translation></message>
+<message><source>Failed to convert wall to pillar: %1</source><translation>Nepodarilo sa previesť stenu na pilier: %1</translation></message>
+<message><source>Cannot convert wall to pillar without map source transaction support.</source><translation>Nie je možné previesť stenu na pilier bez podpory zdrojových transakcií mapy.</translation></message>
+<message><source>Make Wall Pillar</source><translation>Previesť stenu na pilier</translation></message>
+</context>
+<context><name>TherionStudio::MapEditorSceneRenderer</name>
+<message><source>Warning: wall direction tick points the wrong way for its -outline.</source><translation>Upozornenie: smerová čiarka steny smeruje opačne vzhľadom na jej -outline.</translation></message>
+</context>
+<context><name>MainWindow</name>
+<message><source>Show direction ticks for all walls and highlight walls with suspicious orientation.</source><translation>Zobraziť smerové čiarky pre všetky steny a zvýrazniť steny s podozrivou orientáciou.</translation></message>
+<message><source>Hide Wall Direction Check</source><translation>Skryť kontrolu smeru stien</translation></message>
+<message><source>Check Wall Directions</source><translation>Skontrolovať smery stien</translation></message>
+</context>
 </TS>

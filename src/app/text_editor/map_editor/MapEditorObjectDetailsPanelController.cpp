@@ -1021,17 +1021,43 @@ void MapEditorObjectDetailsPanelController::refreshObjectDetailsPanel()
             context_.lineReversedCheck->setVisible(true);
             context_.lineClosedCheck->setChecked(lineFeature->closed);
             context_.lineReversedCheck->setChecked(lineFeature->reversed);
+            if (context_.lineOutlineRow != nullptr && context_.lineOutlineCombo != nullptr) {
+                context_.lineOutlineRow->setVisible(true);
+                const QSignalBlocker outlineBlocker(context_.lineOutlineCombo);
+                const QString outline = lineFeature->optionValues.value(QStringLiteral("outline")).trimmed().toLower();
+                const int outlineIndex = indexForComboUserData(context_.lineOutlineCombo, outline);
+                context_.lineOutlineCombo->setCurrentIndex(outlineIndex >= 0 ? outlineIndex : 0);
+            }
+            if (context_.makeWallPillarButton != nullptr) {
+                context_.makeWallPillarButton->setVisible(isWallLineFeature(*lineFeature));
+            }
         } else {
             context_.lineClosedCheck->setVisible(false);
             context_.lineReversedCheck->setVisible(false);
             context_.lineClosedCheck->setChecked(false);
             context_.lineReversedCheck->setChecked(false);
+            if (context_.lineOutlineRow != nullptr && context_.lineOutlineCombo != nullptr) {
+                context_.lineOutlineRow->setVisible(false);
+                const QSignalBlocker outlineBlocker(context_.lineOutlineCombo);
+                context_.lineOutlineCombo->setCurrentIndex(0);
+            }
+            if (context_.makeWallPillarButton != nullptr) {
+                context_.makeWallPillarButton->setVisible(false);
+            }
         }
     } else {
         context_.lineClosedCheck->setVisible(false);
         context_.lineReversedCheck->setVisible(false);
         context_.lineClosedCheck->setChecked(false);
         context_.lineReversedCheck->setChecked(false);
+        if (context_.lineOutlineRow != nullptr && context_.lineOutlineCombo != nullptr) {
+            context_.lineOutlineRow->setVisible(false);
+            const QSignalBlocker outlineBlocker(context_.lineOutlineCombo);
+            context_.lineOutlineCombo->setCurrentIndex(0);
+        }
+        if (context_.makeWallPillarButton != nullptr) {
+            context_.makeWallPillarButton->setVisible(false);
+        }
     }
     const bool pointClipInGeometrySection = *context_.selectedObjectKind == QStringLiteral("point") && clipDisabledVisible;
     moveSelectionControlToContainer(context_.objectClipDisabledCheck,

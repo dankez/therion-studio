@@ -1,6 +1,9 @@
 #include "MapEditorTab.h"
 
+#include <QAbstractGraphicsShapeItem>
 #include <QFontMetrics>
+#include <QGraphicsLineItem>
+#include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QPoint>
 #include <QShortcut>
@@ -12,6 +15,7 @@
 #include "../TextEditorTab.h"
 #include "MapEditorMagnifierOverlay.h"
 #include "MapEditorSceneLifecycleController.h"
+#include "MapEditorSceneSupport.h"
 #include "MapEditorViewportInputController.h"
 
 namespace TherionStudio
@@ -294,6 +298,63 @@ void MapEditorTab::setMagnifierEnabled(bool enabled)
         hideMagnifierOverlay();
     } else if (pointerHasViewportPosition_) {
         schedulePointerReadoutUpdate(pointerLastViewportPosition_);
+    }
+}
+
+bool MapEditorTab::isWallDirectionCheckEnabled() const
+{
+    return wallDirectionCheckEnabled_;
+}
+
+void MapEditorTab::setWallDirectionCheckEnabled(bool enabled)
+{
+    if (wallDirectionCheckEnabled_ == enabled) {
+        return;
+    }
+
+    wallDirectionCheckEnabled_ = enabled;
+    applyWallDirectionCheckPresentation();
+    updateGeometrySelectionPresentation();
+}
+
+void MapEditorTab::applyWallDirectionCheckPresentation()
+{
+    if (mapScene_ == nullptr) {
+        return;
+    }
+
+    const QColor warningColor(235, 64, 52);
+    const QList<QGraphicsItem *> items = mapScene_->items();
+    for (QGraphicsItem *item : items) {
+        if (item == nullptr) {
+            continue;
+        }
+
+        if (item->data(kMapSceneWallDirectionTickRole).toBool()) {
+            const int lineNumber = item->data(kMapSceneLineNumberRole).toInt();
+            if (wallDirectionCheckEnabled_) {
+                const bool hidden = lineNumber > 0 && hiddenInspectorObjectLines_.contains(lineNumber);
+                item->setVisible(!hidden);
+            }
+        }
+
+        if (item->data(kMapSceneWallOrientationWrongRole).toBool()) {
+            const QVariant originalColorVar = item->data(kMapSceneOriginalPenColorRole);
+            const QColor targetColor = wallDirectionCheckEnabled_
+                ? warningColor
+                : (originalColorVar.canConvert<QColor>() ? originalColorVar.value<QColor>() : QColor());
+            if (targetColor.isValid()) {
+                if (auto *shapeItem = dynamic_cast<QAbstractGraphicsShapeItem *>(item)) {
+                    QPen pen = shapeItem->pen();
+                    pen.setColor(targetColor);
+                    shapeItem->setPen(pen);
+                } else if (auto *lineItem = dynamic_cast<QGraphicsLineItem *>(item)) {
+                    QPen pen = lineItem->pen();
+                    pen.setColor(targetColor);
+                    lineItem->setPen(pen);
+                }
+            }
+        }
     }
 }
 

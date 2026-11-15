@@ -116,6 +116,16 @@ public:
                                                      const QString &align,
                                                      QVector<TherionSourceTextEdit> *edits,
                                                      QString *errorMessage = nullptr);
+    [[nodiscard]] static bool lineOutlineRewriteEdits(const QString &contents,
+                                                      int lineNumber,
+                                                      const QString &outline,
+                                                      QVector<TherionSourceTextEdit> *edits,
+                                                      QString *errorMessage = nullptr);
+    [[nodiscard]] static bool lineMakePillarRewriteEdits(const QString &contents,
+                                                         int lineNumber,
+                                                         bool reversed,
+                                                         QVector<TherionSourceTextEdit> *edits,
+                                                         QString *errorMessage = nullptr);
     [[nodiscard]] static bool linePointOrientationRewriteEdits(const QString &contents,
                                                                int lineNumber,
                                                                int sourceVertexIndex,

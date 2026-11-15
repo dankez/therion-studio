@@ -1298,9 +1298,13 @@ void MapEditorSelectionController::updateGeometrySelectionPresentation()
             return;
         }
 
+        const bool wallDirectionCheckActive = context_.wallDirectionCheckEnabled != nullptr
+            && *context_.wallDirectionCheckEnabled;
+        const bool alwaysShowWallTick = wallDirectionCheckActive
+            && item->data(kMapSceneWallDirectionTickRole).toBool();
         bool visible = lineNumber > 0
             && !(*context_.hiddenObjectLines).contains(lineNumber)
-            && selectedLines.contains(lineNumber);
+            && (selectedLines.contains(lineNumber) || alwaysShowWallTick);
         const bool lineControlSelectionSubtype = subtype == kMapSceneSelectionSubtypeLineControl
             || subtype == kMapSceneSelectionSubtypeLineControlConnector;
         bool neighbourControl = false;

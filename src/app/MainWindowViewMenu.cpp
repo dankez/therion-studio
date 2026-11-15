@@ -34,6 +34,11 @@ void MainWindow::refreshViewMenuActions()
         mapMagnifierAction_->setText(enabled ? tr("Hide Map Magnifier") : tr("Show Map Magnifier"));
     }
 
+    if (wallDirectionCheckAction_ != nullptr) {
+        const bool enabled = wallDirectionCheckAction_->data().toBool();
+        wallDirectionCheckAction_->setText(enabled ? tr("Hide Wall Direction Check") : tr("Check Wall Directions"));
+    }
+
     refreshFullScreenAction();
 }
 

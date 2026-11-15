@@ -2830,6 +2830,148 @@ bool TherionDocumentEditor::pointAlignRewriteEdits(const QString &contents,
     return true;
 }
 
+bool TherionDocumentEditor::lineOutlineRewriteEdits(const QString &contents,
+                                                      int lineNumber,
+                                                      const QString &outline,
+                                                      QVector<TherionSourceTextEdit> *edits,
+                                                      QString *errorMessage)
+{
+    if (edits == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "No edit target is available.");
+        }
+        return false;
+    }
+
+    edits->clear();
+
+    if (lineNumber <= 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line number is invalid.");
+        }
+        return false;
+    }
+
+    const QString normalizedOutline = outline.trimmed().toLower();
+    if (!normalizedOutline.isEmpty()
+        && normalizedOutline != QStringLiteral("out")
+        && normalizedOutline != QStringLiteral("in")
+        && normalizedOutline != QStringLiteral("none")) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "Unsupported line outline value.");
+        }
+        return false;
+    }
+
+    const TherionSourceDocument sourceDocument = TherionSourceDocument::fromText(contents);
+    const TherionSourceDocumentLine *sourceDocumentLine = sourceDocument.lineAtLineNumber(lineNumber);
+    if (sourceDocumentLine == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line no longer exists.");
+        }
+        return false;
+    }
+
+    const TherionParsedSourceLine &sourceLine = sourceDocumentLine->sourceLine;
+    QString lineText = sourceLine.text;
+    const TherionParsedLine &parsedLine = sourceLine.parsed;
+    if (parsedLine.directive != QStringLiteral("line")) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "Outline is available only for line commands.");
+        }
+        return false;
+    }
+
+    if (!upsertSingleValueOption(&lineText, QStringLiteral("-outline"), normalizedOutline)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line outline option could not be rewritten.");
+        }
+        return false;
+    }
+
+    if (lineText != sourceLine.text) {
+        edits->append(TherionSourceTextEdit{
+            sourceLine.startOffset,
+            sourceLine.textLength,
+            lineText,
+        });
+    }
+    return true;
+}
+
+bool TherionDocumentEditor::lineMakePillarRewriteEdits(const QString &contents,
+                                                         int lineNumber,
+                                                         bool reversed,
+                                                         QVector<TherionSourceTextEdit> *edits,
+                                                         QString *errorMessage)
+{
+    if (edits == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "No edit target is available.");
+        }
+        return false;
+    }
+
+    edits->clear();
+
+    if (lineNumber <= 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line number is invalid.");
+        }
+        return false;
+    }
+
+    const TherionSourceDocument sourceDocument = TherionSourceDocument::fromText(contents);
+    const TherionSourceDocumentLine *sourceDocumentLine = sourceDocument.lineAtLineNumber(lineNumber);
+    if (sourceDocumentLine == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line no longer exists.");
+        }
+        return false;
+    }
+
+    const TherionParsedSourceLine &sourceLine = sourceDocumentLine->sourceLine;
+    if (sourceLine.parsed.directive != QStringLiteral("line")) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("TherionStudio::TherionDocumentEditor", "The selected line is not a writable line directive.");
+        }
+        return false;
+    }
+
+    QString lineText = sourceLine.text;
+    auto applyStep = [&](const QVector<TherionSourceTextEdit> &stepEdits) {
+        for (int index = stepEdits.size() - 1; index >= 0; --index) {
+            const TherionSourceTextEdit &edit = stepEdits.at(index);
+            lineText.replace(edit.startOffset, edit.length, edit.replacementText);
+        }
+    };
+
+    QVector<TherionSourceTextEdit> stepEdits;
+    if (!lineOptionToggleRewriteEdits(lineText, 1, QStringLiteral("-close"), true, &stepEdits, errorMessage)) {
+        return false;
+    }
+    applyStep(stepEdits);
+
+    if (!lineOutlineRewriteEdits(lineText, 1, QStringLiteral("in"), &stepEdits, errorMessage)) {
+        return false;
+    }
+    applyStep(stepEdits);
+
+    if (!lineOptionToggleRewriteEdits(lineText, 1, QStringLiteral("-reverse"), reversed, &stepEdits, errorMessage)) {
+        return false;
+    }
+    applyStep(stepEdits);
+
+    if (lineText != sourceLine.text) {
+        edits->append(TherionSourceTextEdit{
+            sourceLine.startOffset,
+            sourceLine.textLength,
+            lineText,
+        });
+    }
+    return true;
+}
+
 bool TherionDocumentEditor::linePointOrientationRewriteEdits(const QString &contents,
                                                              int lineNumber,
                                                              int sourceVertexIndex,

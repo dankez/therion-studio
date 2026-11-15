@@ -32,6 +32,7 @@ struct MapEditorSelectionContext
     MapEditorSceneInteractionIndex *sceneInteractionIndex = nullptr;
     QHash<int, QGraphicsItem *> *itemsByLine = nullptr;
     QSet<int> *hiddenObjectLines = nullptr;
+    const bool *wallDirectionCheckEnabled = nullptr;
     QSet<int> *suppressedAutoReselectLineNumbers = nullptr;
     bool *updatingSelection = nullptr;
     bool *autoFitEnabled = nullptr;

@@ -43,6 +43,7 @@
 
 class QLabel;
 class QFrame;
+class QVBoxLayout;
 class QGraphicsScene;
 class QGraphicsView;
 class QLineEdit;
@@ -231,6 +232,8 @@ public:
     }
 #endif
     void setMagnifierEnabled(bool enabled);
+    [[nodiscard]] bool isWallDirectionCheckEnabled() const;
+    void setWallDirectionCheckEnabled(bool enabled);
     void setRightPanelCollapsed(bool collapsed);
     void setContextHelpPanelCollapsed(bool collapsed);
     bool isInsertModeActive() const;
@@ -496,6 +499,9 @@ private:
         QWidget *objectQuickProjectionEditor_ = nullptr;
         QCheckBox *lineClosedCheck_ = nullptr;
         QCheckBox *lineReversedCheck_ = nullptr;
+        QWidget *lineOutlineRow_ = nullptr;
+        QComboBox *lineOutlineCombo_ = nullptr;
+        QPushButton *makeWallPillarButton_ = nullptr;
         QCheckBox *objectClipDisabledCheck_ = nullptr;
         QWidget *pointAlignEditor_ = nullptr;
         QLabel *pointAlignLabel_ = nullptr;
@@ -822,11 +828,15 @@ private:
     void handleLinePointLeftSizeEnabledToggled(bool checked);
     void handleLineClosedToggled(bool checked);
     void handleLineReversedToggled(bool checked);
+    void handleLineOutlineChanged();
+    void handleMakeWallPillarClicked();
     void handleObjectClipDisabledToggled(bool checked);
     void handlePointAlignChanged();
     QMenu *createMapContextMenu();
     void showMapSelectionContextMenu(const QPoint &globalPosition);
 
+    void applyWallDirectionCheckPresentation();
+    void buildLineOutlineAndPillarControls(QVBoxLayout *lineOptionsLayout);
     QWidget *workspaceModeRow_ = nullptr;
     QPushButton *visualModeButton_ = nullptr;
     QPushButton *rawModeButton_ = nullptr;
@@ -841,6 +851,7 @@ private:
     bool pointerThrottleActive_ = false;
     QString pointerStatusText_;
     bool magnifierEnabled_ = true;
+    bool wallDirectionCheckEnabled_ = false;
     QTimer *hoverUpdateTimer_ = nullptr;
     QPoint pendingHoverViewportPosition_;
     QElapsedTimer lastHoverUpdateElapsed_;

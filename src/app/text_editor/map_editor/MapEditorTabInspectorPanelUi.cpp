@@ -253,6 +253,7 @@ void MapEditorTab::buildInspectorPanelUi()
     connect(objectDetailsUiState_.objectClipDisabledCheck_, &QCheckBox::toggled, this, &MapEditorTab::handleObjectClipDisabledToggled);
     lineOptionsLayout->addWidget(objectDetailsUiState_.lineClosedCheck_);
     lineOptionsLayout->addWidget(objectDetailsUiState_.lineReversedCheck_);
+    buildLineOutlineAndPillarControls(lineOptionsLayout);
     lineOptionsLayout->addWidget(objectDetailsUiState_.objectClipDisabledCheck_);
     geometrySelectionLayout->addWidget(objectDetailsUiState_.lineOptionsEditor_);
 

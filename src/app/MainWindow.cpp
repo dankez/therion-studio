@@ -670,6 +670,16 @@ void MainWindow::buildMenus()
         refreshViewMenuActions();
     });
 
+    wallDirectionCheckAction_ = viewMenu->addAction(QString());
+    wallDirectionCheckAction_->setData(false);
+    wallDirectionCheckAction_->setStatusTip(tr("Show direction ticks for all walls and highlight walls with suspicious orientation."));
+    connect(wallDirectionCheckAction_, &QAction::triggered, this, [this]() {
+        const bool enabled = !wallDirectionCheckAction_->data().toBool();
+        wallDirectionCheckAction_->setData(enabled);
+        setWallDirectionCheckEnabledForOpenTabs(enabled);
+        refreshViewMenuActions();
+    });
+
 #if !defined(Q_OS_MACOS)
     viewMenu->addSeparator();
     fullScreenAction_ = viewMenu->addAction(QString());
@@ -1620,6 +1630,9 @@ void MainWindow::connectMapEditorTabUiSignals(TherionStudio::MapEditorTab *tab)
             refreshViewMenuActions();
         }
     });
+    if (wallDirectionCheckAction_ != nullptr && wallDirectionCheckAction_->data().toBool()) {
+        tab->setWallDirectionCheckEnabled(true);
+    }
 }
 
 void MainWindow::forEachOpenMapEditorTab(const std::function<void(TherionStudio::MapEditorTab *)> &action)
@@ -1640,6 +1653,11 @@ void MainWindow::forEachOpenMapEditorTab(const std::function<void(TherionStudio:
 void MainWindow::setMapMagnifierEnabledForOpenTabs(bool enabled)
 {
     forEachOpenMapEditorTab([enabled](TherionStudio::MapEditorTab *mapTab) { mapTab->setMagnifierEnabled(enabled); });
+}
+
+void MainWindow::setWallDirectionCheckEnabledForOpenTabs(bool enabled)
+{
+    forEachOpenMapEditorTab([enabled](TherionStudio::MapEditorTab *mapTab) { mapTab->setWallDirectionCheckEnabled(enabled); });
 }
 
 TherionStudio::MapEditorTab *MainWindow::openMapEditorTab(const QString &filePath,
