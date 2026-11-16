@@ -38,6 +38,18 @@ namespace
 constexpr qreal kFilledPathInteriorHitDistancePixels = 0.0;
 constexpr qreal kMaximumPathPrimaryHitDistancePixels = 5.0;
 
+// Scene extent used to centre the view on a selected item. Items that ignore view
+// transformations (points, stations) report symbol and label bounds in screen
+// pixels, which would be misread as scene units and push the anchor off-screen
+// at high zoom, so they centre on their anchor instead.
+QRectF selectionCenteringSceneRect(const QGraphicsItem *item)
+{
+    if (item->flags().testFlag(QGraphicsItem::ItemIgnoresTransformations)) {
+        return QRectF(item->scenePos(), QSizeF(0.0, 0.0));
+    }
+    return item->sceneBoundingRect();
+}
+
 bool isInteractiveMapSelectionItem(const QGraphicsItem *item)
 {
     if (item == nullptr) {
@@ -1392,12 +1404,7 @@ void MapEditorSelectionController::selectMapLine(int lineNumber, bool centerOnSe
                                       lineNumber);
         }
         if (centerOnSelection && !(*context_.autoFitEnabled) && context_.view != nullptr) {
-            const QRectF itemBounds = selectedItem->sceneBoundingRect();
-            if (!itemBounds.isNull() || (itemBounds.x() != 0.0 || itemBounds.y() != 0.0)) {
-                context_.view->centerOn(itemBounds.center());
-            } else {
-                context_.view->centerOn(selectedItem);
-            }
+            context_.view->centerOn(selectionCenteringSceneRect(selectedItem).center());
         }
     }
 
@@ -1466,10 +1473,7 @@ void MapEditorSelectionController::selectMapLines(const QSet<int> &lineNumbers, 
             if (item == nullptr) {
                 continue;
             }
-            const QRectF itemBounds = item->sceneBoundingRect();
-            if (itemBounds.isNull() && itemBounds.x() == 0.0 && itemBounds.y() == 0.0) {
-                continue;
-            }
+            const QRectF itemBounds = selectionCenteringSceneRect(item);
             const qreal left = std::min(itemBounds.left(), itemBounds.right());
             const qreal right = std::max(itemBounds.left(), itemBounds.right());
             const qreal top = std::min(itemBounds.top(), itemBounds.bottom());

@@ -15,6 +15,10 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
+- Manually confirm on v42 that clicking station `3311` in Objects centres it at high zoom. Selection centring now
+  uses anchors for transform-ignoring point items instead of pixel-sized label bounds; covered by
+  `MapEditorScrapVisibilityUiTest::objectsViewClickCentersStationAtHighZoom`.
+
 - TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
   explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.
   Use the opt-in `map-scene-patch` diagnostics to identify rejection reasons and separate preparation, scene, and UI

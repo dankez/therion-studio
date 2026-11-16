@@ -101,6 +101,7 @@ private slots:
     void emptyCanvasMenuShowsAllScrapsOnlyWhenNeeded();
     void objectsViewMenuOffersScrapSubmenus();
     void movesObjectToScrapWithUndo();
+    void objectsViewClickCentersStationAtHighZoom();
 
 private:
     QTemporaryDir *temporaryDirectory_ = nullptr;
@@ -343,6 +344,45 @@ void MapEditorScrapVisibilityUiTest::movesObjectToScrapWithUndo()
     mapTab_->triggerUndo();
     pumpEvents();
     QCOMPARE(mapTab_->text(), before);
+}
+
+void MapEditorScrapVisibilityUiTest::objectsViewClickCentersStationAtHighZoom()
+{
+    auto *mapView = mapTab_->findChild<QGraphicsView *>(QStringLiteral("mapCanvasView"));
+    auto *tree = mapTab_->findChild<QTreeView *>(QStringLiteral("mapObjectsTree"));
+    QVERIFY(mapView != nullptr && tree != nullptr);
+    auto *model = qobject_cast<QStandardItemModel *>(tree->model());
+    QVERIFY(model != nullptr);
+
+    for (int step = 0; step < 16; ++step) {
+        mapTab_->triggerZoomIn();
+    }
+    pumpEvents();
+    QVERIFY(mapView->transform().m11() > 4.0);
+
+    const QModelIndex stationIndex = visibilityIndexForLine(model, kScrapBPointLine).siblingAtColumn(0);
+    QVERIFY(stationIndex.isValid());
+    emit tree->clicked(stationIndex);
+    pumpEvents();
+
+    QGraphicsItem *station = nullptr;
+    for (QGraphicsItem *item : objectItems(scene_, kScrapBPointLine)) {
+        if (item->data(kMapSceneStationScrapRole).toInt() > 0) {
+            station = item;
+        }
+    }
+    QVERIFY(station != nullptr);
+    QVERIFY(station->isSelected());
+    // Point symbols and labels keep a fixed screen size, so the anchor, not the
+    // label-inflated bounds, must land in the middle of the canvas.
+    const QPoint stationInViewport = mapView->mapFromScene(station->scenePos());
+    const QPoint viewportCenter = mapView->viewport()->rect().center();
+    QVERIFY2((stationInViewport - viewportCenter).manhattanLength() <= 4,
+             qPrintable(QStringLiteral("station at %1,%2, viewport center %3,%4")
+                            .arg(stationInViewport.x())
+                            .arg(stationInViewport.y())
+                            .arg(viewportCenter.x())
+                            .arg(viewportCenter.y())));
 }
 
 int runMapEditorScrapVisibilityUiTest(int argc, char **argv)
