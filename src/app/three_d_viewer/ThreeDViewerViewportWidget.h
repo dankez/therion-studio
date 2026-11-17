@@ -12,6 +12,7 @@
 #include <functional>
 
 class QImage;
+class QShowEvent;
 
 namespace TherionStudio
 {
@@ -53,6 +54,9 @@ signals:
     void cameraSettingsChanged(double facingDegrees, double tiltDegrees, double distanceMeters, double focalLengthMm);
     void measurementModeExitRequested();
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 private:
     void syncRootItem();
     ThreeDViewerViewportItem *rootViewportItem() const;
@@ -80,6 +84,7 @@ private:
     bool pendingRollLeft_ = false;
     bool pendingRollRight_ = false;
     bool hasPendingViewPreset_ = false;
+    bool hasBeenShown_ = false;
     bool rootSceneModelSynced_ = false;
     bool pendingSceneFitToScene_ = true;
     ThreeDViewerViewPreset pendingViewPreset_ = ThreeDViewerViewPreset::Isometric;

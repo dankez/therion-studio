@@ -34,6 +34,7 @@ class ThreeDViewerViewportWidgetTest : public QObject
 
 private slots:
     void loadsTheQmlViewportSurface();
+    void appliesStateSetBeforeFirstShow();
     void escapeRequestsMeasurementModeExit();
     void escapeLeavesTabMeasurementModeAfterToolbarActivation();
     void arrowKeysNavigateWhenTabHasFocus();
@@ -335,6 +336,23 @@ void ThreeDViewerViewportWidgetTest::loadsTheQmlViewportSurface()
     widget.show();
 
     QTRY_COMPARE(widget.status(), QQuickWidget::Ready);
+    QVERIFY(widget.rootObject() != nullptr);
+}
+
+void ThreeDViewerViewportWidgetTest::appliesStateSetBeforeFirstShow()
+{
+    // Regression: QML root properties must not be pushed before the widget is shown,
+    // otherwise Qt debug builds abort in QQuickWidget's offscreen window handling.
+    ThreeDViewerViewportWidget widget;
+    widget.resize(640, 480);
+    widget.setSceneModel(ThreeDViewerSceneModel(), true);
+    widget.setCameraDistanceMeters(80.0);
+    widget.setCameraFocalLengthMm(50.0);
+
+    QTRY_COMPARE(widget.status(), QQuickWidget::Ready);
+
+    widget.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&widget));
     QVERIFY(widget.rootObject() != nullptr);
 }
 

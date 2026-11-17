@@ -315,8 +315,24 @@ void ThreeDViewerViewportWidget::syncRootItem()
     }
 }
 
+void ThreeDViewerViewportWidget::showEvent(QShowEvent *event)
+{
+    QQuickWidget::showEvent(event);
+    if (hasBeenShown_) {
+        return;
+    }
+    // Scene and state changes made before the first show are deferred here: pushing
+    // properties into the QML root while QQuickWidget has no native window aborts in
+    // Qt debug builds (qquickwidget.cpp: offscreenWindow->handle()).
+    hasBeenShown_ = true;
+    syncRootItem();
+}
+
 ThreeDViewerViewportItem *ThreeDViewerViewportWidget::rootViewportItem() const
 {
+    if (!hasBeenShown_) {
+        return nullptr;
+    }
     return qobject_cast<ThreeDViewerViewportItem *>(rootObject());
 }
 
