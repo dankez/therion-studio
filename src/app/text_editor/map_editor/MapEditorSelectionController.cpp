@@ -665,9 +665,8 @@ MapEditableGeometryVertexItem *findGeometryVertexItem(QGraphicsScene *scene,
         return nullptr;
     }
 
-    ++mapEditorPerformanceCounters().fullSceneItemScans;
-    const auto items = scene->items();
-    for (QGraphicsItem *item : items) {
+    const QVector<QGraphicsItem *> lineItems = MapEditorSceneHandleIndex::itemsForLine(scene, lineNumber);
+    for (QGraphicsItem *item : lineItems) {
         auto *vertexItem = dynamic_cast<MapEditableGeometryVertexItem *>(item);
         if (vertexItem == nullptr) {
             continue;

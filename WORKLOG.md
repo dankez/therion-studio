@@ -15,9 +15,12 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
-- Manually confirm on v42 that clicking station `3311` in Objects centres it at high zoom. Selection centring now
-  uses anchors for transform-ignoring point items instead of pixel-sized label bounds; covered by
-  `MapEditorScrapVisibilityUiTest::objectsViewClickCentersStationAtHighZoom`.
+- TH2 selection vertex lookup now uses the scene handle index instead of sorted whole-scene walks
+  (`MapEditorSpatialIndexRepaintTest::selectionClicksDoNotScanWholeScene`). v42 offscreen, 12 selections: whole-scene
+  scans 26 to 1; select-press median 93-108 to 41-44 ms; select total-to-idle median 270-298 to 213 ms with the magnifier
+  on and 239-248 to 190 ms with it off. Next: diagnose `map-scene-patch` fallbacks for delete and line move, patch
+  same-line-count edits first, then line renumbering (`lineNumber_`, item callbacks, interaction index,
+  `hiddenInspectorObjectLines_`). Measure a Windows Release build with the magnifier on and off before magnifier work.
 
 - TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
   explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.

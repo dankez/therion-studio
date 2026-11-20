@@ -771,6 +771,71 @@ private slots:
     // Proposal 4: hover/selection/drag/zoom/pan/detach must repaint only
     // dirty regions, and the partially updated viewport must equal a clean
     // full repaint (no dirty trails), including at very high zoom.
+    // Selecting a wall, clicking one of its vertices and placing the text
+    // cursor on a vertex must find vertex handles through the handle index,
+    // not by walking every item of a large scene.
+    void selectionClicksDoNotScanWholeScene()
+    {
+        Harness harness;
+        QVERIFY(open(harness, readFixture(QStringLiteral(
+                                  "tests/fixtures/projects/map_editor_regression/real_cave_raster/data/clopy01.th2"))));
+        QWidget *viewport = harness.view->viewport();
+        auto &scans = mapEditorPerformanceCounters().fullSceneItemScans;
+        MapEditableGeometryVertexItem *anchor = wallAnchor(harness.scene, 3);
+        QVERIFY(anchor != nullptr);
+        const int wallLine = anchor->lineNumber();
+        QGraphicsPathItem *wallPath = nullptr;
+        for (QGraphicsItem *item : harness.scene->items()) {
+            auto *path = dynamic_cast<QGraphicsPathItem *>(item);
+            if (path != nullptr && path->data(kMapSceneLineNumberRole).toInt() == wallLine
+                && path->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeGeneric) {
+                wallPath = path;
+                break;
+            }
+        }
+        QVERIFY(wallPath != nullptr);
+        for (int i = 0; i < 3; ++i) {
+            harness.tab->triggerZoomIn();
+        }
+        harness.view->centerOn(anchor->scenePos());
+        QTest::qWait(30);
+
+        const auto click = [&](const QPoint &position) {
+            sendPointer(viewport, QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton);
+            QTest::qWait(30);
+            const int before = counter(scans);
+            sendPointer(viewport, QEvent::MouseButtonPress, position, Qt::LeftButton, Qt::LeftButton);
+            sendPointer(viewport, QEvent::MouseButtonRelease, position, Qt::LeftButton, Qt::NoButton);
+            QTest::qWait(30);
+            return counter(scans) - before;
+        };
+
+        const int wallClickScans =
+            click(harness.view->mapFromScene(wallPath->mapToScene(wallPath->path().pointAtPercent(0.37))));
+        QVERIFY(wallPath->isSelected());
+        QVERIFY(anchor->isVisible());
+        const int vertexClickScans = click(harness.view->mapFromScene(anchor->scenePos()));
+        QVERIFY(anchor->isSelected());
+
+        const int vertexSourceLine = wallLine + 1 + anchor->vertexIndex();
+        const int before = counter(scans);
+        harness.tab->goToLine(vertexSourceLine);
+        QTest::qWait(30);
+        const int cursorScans = counter(scans) - before;
+        bool vertexSelectedFromCursor = false;
+        for (QGraphicsItem *item : harness.scene->selectedItems()) {
+            auto *vertex = dynamic_cast<MapEditableGeometryVertexItem *>(item);
+            vertexSelectedFromCursor = vertexSelectedFromCursor || (vertex != nullptr && vertex->lineNumber() == wallLine);
+        }
+        QVERIFY(vertexSelectedFromCursor);
+
+        QVERIFY2(wallClickScans == 0 && vertexClickScans == 0 && cursorScans == 0,
+                 qPrintable(QStringLiteral("whole-scene scans: wall click %1, vertex click %2, text cursor %3")
+                                .arg(wallClickScans)
+                                .arg(vertexClickScans)
+                                .arg(cursorScans)));
+    }
+
     void partialRepaintMatchesFullRepaint()
     {
         Harness harness;
