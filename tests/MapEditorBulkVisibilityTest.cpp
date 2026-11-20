@@ -387,10 +387,10 @@ private slots:
         harness.tab->goToLine(2);
         QCoreApplication::processEvents();
 
-        // Scrap a passage (stalactite and 2 walls) scene center is at ~(599.11, 323.68)
+        // Scrap a passage (stalactite anchor and 2 walls) scene center is at ~(599.11, 316.9)
         QPointF centerA = harness.view->mapToScene(harness.view->viewport()->rect().center());
         QVERIFY(qAbs(centerA.x() - 599.11) < 2.0);
-        QVERIFY(qAbs(centerA.y() - 323.68) < 2.0);
+        QVERIFY(qAbs(centerA.y() - 316.9) < 2.0);
 
         // Cycle to scrap b (line 15)
         nextBtn->click();
@@ -413,7 +413,7 @@ private slots:
 
         centerA = harness.view->mapToScene(harness.view->viewport()->rect().center());
         QVERIFY(qAbs(centerA.x() - 599.11) < 2.0);
-        QVERIFY(qAbs(centerA.y() - 323.68) < 2.0);
+        QVERIFY(qAbs(centerA.y() - 316.9) < 2.0);
 
         // Test clicking scrap row directly in inspector tree
         auto *objectsTree = harness.tab->findChild<QTreeView *>(QStringLiteral("mapObjectsTree"));
