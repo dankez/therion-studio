@@ -836,6 +836,74 @@ private slots:
                                 .arg(cursorScans)));
     }
 
+    // Undo/redo of an in-place vertex drag must patch only the changed geometry
+    // instead of rebuilding a large scene, and the patched scene must match a
+    // freshly loaded projection of the same text.
+    void vertexDragUndoRedoPatchesTheScene()
+    {
+        Harness harness;
+        const QString before = readFixture(QStringLiteral(
+            "tests/fixtures/projects/map_editor_regression/real_cave_raster/data/clopy01.th2"));
+        QVERIFY(open(harness, before));
+        QWidget *viewport = harness.view->viewport();
+        MapEditableGeometryVertexItem *anchor = wallAnchor(harness.scene, 3);
+        QVERIFY(anchor != nullptr);
+        const int wallLine = anchor->lineNumber();
+        for (int i = 0; i < 3; ++i) {
+            harness.tab->triggerZoomIn();
+        }
+        harness.view->centerOn(anchor->scenePos());
+        harness.tab->goToLine(wallLine);
+        QTest::qWait(30);
+        const QPoint start = harness.view->mapFromScene(anchor->scenePos());
+        sendPointer(viewport, QEvent::MouseMove, start, Qt::NoButton, Qt::NoButton);
+        QTest::qWait(30);
+        sendPointer(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        for (int step = 1; step <= 5; ++step) {
+            sendPointer(viewport, QEvent::MouseMove, start + QPoint(step * 6, step * 2), Qt::NoButton, Qt::LeftButton);
+            QCoreApplication::processEvents();
+        }
+        sendPointer(viewport, QEvent::MouseButtonRelease, start + QPoint(30, 10), Qt::LeftButton, Qt::NoButton);
+        QTest::qWait(50);
+        const QString after = harness.tab->text();
+        QVERIFY(after != before);
+
+        auto &counters = mapEditorPerformanceCounters();
+        const int fullBefore = counter(counters.sceneFullRefreshes);
+        const int patchesBefore = counter(counters.sceneGeometryPatches);
+        const int fallbacksBefore = counter(counters.scenePatchFallbacks);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        for (int repeat = 0; repeat != 2; ++repeat) {
+            generations.clear();
+            harness.tab->triggerUndo();
+            QTRY_VERIFY(!generations.isEmpty());
+            QCOMPARE(harness.tab->text(), before);
+            generations.clear();
+            harness.tab->triggerRedo();
+            QTRY_VERIFY(!generations.isEmpty());
+            QCOMPARE(harness.tab->text(), after);
+        }
+        QCOMPARE(counter(counters.sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(counters.scenePatchFallbacks), fallbacksBefore);
+        QCOMPARE(counter(counters.sceneGeometryPatches), patchesBefore + 4);
+
+        Harness fresh;
+        QVERIFY(open(fresh, after));
+        const auto wallPath = [](QGraphicsScene *scene, int line) -> QPainterPath {
+            for (QGraphicsItem *item : scene->items()) {
+                auto *path = dynamic_cast<QGraphicsPathItem *>(item);
+                if (path != nullptr && path->data(kMapSceneLineNumberRole).toInt() == line
+                    && path->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeGeneric) {
+                    return path->mapToScene(path->path());
+                }
+            }
+            return {};
+        };
+        QVERIFY(!wallPath(fresh.scene, wallLine).isEmpty());
+        QCOMPARE(wallPath(harness.scene, wallLine), wallPath(fresh.scene, wallLine));
+        QCOMPARE(harness.tab->testHasMapSceneItemForLine(wallLine), true);
+    }
+
     void partialRepaintMatchesFullRepaint()
     {
         Harness harness;

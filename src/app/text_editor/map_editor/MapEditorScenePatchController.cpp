@@ -61,6 +61,38 @@ void sortBySourceLine(QVector<MapGeometryFeature> *features)
         return left.lineNumber < right.lineNumber;
     });
 }
+
+// Mirrors the feature collection of the full scene refresh so baseline and next
+// projections compare equal when nothing rendered changed.
+QVector<MapGeometryFeature> patchGeometryFeatures(const MapEditorSourceProjectionSnapshot &snapshot,
+                                                  const MapEditorOrientationApplicabilityByCommand *orientationApplicability)
+{
+    QVector<MapGeometryFeature> features =
+        collectGeometryFeatures(snapshot.geometryProjection, snapshot.logicalCommands);
+    if (orientationApplicability != nullptr) {
+        QHash<int, const TherionParsedLine *> commandsByLine;
+        for (const auto &command : snapshot.logicalCommands) {
+            commandsByLine.insert(command.parsed.lineNumber, &command.parsed);
+        }
+        for (auto &feature : features) {
+            const auto *parsed = commandsByLine.value(feature.lineNumber);
+            if (feature.kind == MapGeometryFeature::Kind::Point && parsed != nullptr
+                && parsed->directive == QStringLiteral("point")
+                && isOrientationSupportedForParsedLine(*parsed, *orientationApplicability)) {
+                feature.orientationSupported = true;
+                feature.orientationDegrees = pointOrientationFromParsedLine(*parsed);
+            }
+        }
+    }
+    sortBySourceLine(&features);
+    return features;
+}
+
+bool isWallFeature(const MapGeometryFeature &feature)
+{
+    return feature.kind == MapGeometryFeature::Kind::Line
+        && feature.label.trimmed().compare(QStringLiteral("wall"), Qt::CaseInsensitive) == 0;
+}
 }
 
 void MapEditorScenePatchController::recordProjection(MapEditorSourceProjectionSnapshotPtr snapshot,
@@ -70,7 +102,17 @@ void MapEditorScenePatchController::recordProjection(MapEditorSourceProjectionSn
     snapshot_ = std::move(snapshot);
     text_ = std::move(text);
     features_ = std::move(features);
+    featuresPending_ = false;
     sortBySourceLine(&features_);
+}
+
+void MapEditorScenePatchController::recordInPlaceEditProjection(MapEditorSourceProjectionSnapshotPtr snapshot,
+                                                                QString text)
+{
+    snapshot_ = std::move(snapshot);
+    text_ = std::move(text);
+    features_.clear();
+    featuresPending_ = snapshot_ != nullptr;
 }
 
 void MapEditorScenePatchController::invalidate()
@@ -78,6 +120,7 @@ void MapEditorScenePatchController::invalidate()
     snapshot_.reset();
     text_.clear();
     features_.clear();
+    featuresPending_ = false;
 }
 
 bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext &context)
@@ -118,69 +161,89 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
     if (nonGeometryCommands(*snapshot_) != nonGeometryCommands(*next)) {
         return fallback("changed-nongeometry-or-identities");
     }
+    if (featuresPending_) {
+        features_ = patchGeometryFeatures(*snapshot_, context.orientationApplicabilityByCommand);
+        featuresPending_ = false;
+    }
     QVector<MapGeometryFeature> nextFeatures =
-        collectGeometryFeatures(next->geometryProjection, next->logicalCommands);
-    if (context.orientationApplicabilityByCommand != nullptr) {
-        QHash<int, const TherionParsedLine *> commandsByLine;
-        for (const auto &command : next->logicalCommands) {
-            commandsByLine.insert(command.parsed.lineNumber, &command.parsed);
-        }
-        for (auto &feature : nextFeatures) {
-            const auto *parsed = commandsByLine.value(feature.lineNumber);
-            if (feature.kind == MapGeometryFeature::Kind::Point && parsed != nullptr
-                && isOrientationSupportedForParsedLine(*parsed, *context.orientationApplicabilityByCommand)) {
-                feature.orientationSupported = true;
-                feature.orientationDegrees = pointOrientationFromParsedLine(*parsed);
+        patchGeometryFeatures(*next, context.orientationApplicabilityByCommand);
+    const QString nextText = context.documentText();
+    QSet<int> changedLines;
+    QSet<int> removedLines;
+    QVector<MapGeometryFeature> renderedFeatures;
+    if (features_.size() == nextFeatures.size()) {
+        // Same feature identities: re-render only the changed features. Shifted line
+        // numbers keep the full-refresh fallback instead of leaving stale callbacks.
+        QSet<int> wallChangedScraps;
+        for (qsizetype index = 0; index < nextFeatures.size(); ++index) {
+            const auto &before = features_.at(index);
+            const auto &after = nextFeatures.at(index);
+            if (before.lineNumber != after.lineNumber) {
+                return fallback("shifted-feature-identities");
+            }
+            if (before == after) {
+                continue;
+            }
+            changedLines.insert(after.lineNumber);
+            if (isWallFeature(before)) {
+                wallChangedScraps.insert(before.scrapLineNumber);
+            }
+            if (isWallFeature(after)) {
+                wallChangedScraps.insert(after.scrapLineNumber);
             }
         }
-    }
-    sortBySourceLine(&nextFeatures);
-    const qsizetype commonCount = qMin(features_.size(), nextFeatures.size());
-    if (features_.size() == nextFeatures.size()) {
-        return fallback("unchanged-feature-count");
-    }
-    for (qsizetype index = 0; index < commonCount; ++index) {
-        if (!(features_.at(index) == nextFeatures.at(index))) {
-            return fallback("changed-retained-geometry");
+        removedLines = changedLines;
+        for (const auto &feature : std::as_const(nextFeatures)) {
+            const bool updateClip = feature.kind == MapGeometryFeature::Kind::Area
+                && wallChangedScraps.contains(feature.scrapLineNumber);
+            if (updateClip) {
+                removedLines.insert(feature.lineNumber);
+            }
+            if (removedLines.contains(feature.lineNumber)) {
+                renderedFeatures.append(feature);
+            }
         }
-    }
+    } else {
+        const qsizetype commonCount = qMin(features_.size(), nextFeatures.size());
+        for (qsizetype index = 0; index < commonCount; ++index) {
+            if (!(features_.at(index) == nextFeatures.at(index))) {
+                return fallback("changed-retained-geometry");
+            }
+        }
 
-    // Only append/remove complete trailing geometry. Shifted identities and arbitrary
-    // rewrites retain the full-refresh fallback instead of leaving stale callbacks.
-    const bool inserting = nextFeatures.size() > features_.size();
-    const auto &tail = inserting ? nextFeatures : features_;
-    const auto &tailSnapshot = inserting ? next : snapshot_;
-    const auto &firstChanged = tail.at(commonCount);
-    const auto ref = tailSnapshot->geometryProjection.objectRefAtLineNumber(firstChanged.lineNumber);
-    const auto *command = tailSnapshot->geometryProjection.commandForObjectRef(ref);
-    const QString nextText = context.documentText();
-    if (command == nullptr || command->sourceRange.startOffset < 0
-        || QStringView(text_).left(command->sourceRange.startOffset)
-            != QStringView(nextText).left(command->sourceRange.startOffset)) {
-        return fallback("changed-source-prefix");
-    }
-    const int scrapLine = firstChanged.scrapLineNumber;
-    bool wallChanged = false;
-    QSet<int> changedLines;
-    for (qsizetype index = commonCount; index < tail.size(); ++index) {
-        const auto &feature = tail.at(index);
-        if (scrapLine <= 0 || feature.scrapLineNumber != scrapLine) {
-            return fallback("cross-scrap-tail");
+        // Only append/remove complete trailing geometry. Shifted identities and arbitrary
+        // rewrites retain the full-refresh fallback instead of leaving stale callbacks.
+        const bool inserting = nextFeatures.size() > features_.size();
+        const auto &tail = inserting ? nextFeatures : features_;
+        const auto &tailSnapshot = inserting ? next : snapshot_;
+        const auto &firstChanged = tail.at(commonCount);
+        const auto ref = tailSnapshot->geometryProjection.objectRefAtLineNumber(firstChanged.lineNumber);
+        const auto *command = tailSnapshot->geometryProjection.commandForObjectRef(ref);
+        if (command == nullptr || command->sourceRange.startOffset < 0
+            || QStringView(text_).left(command->sourceRange.startOffset)
+                != QStringView(nextText).left(command->sourceRange.startOffset)) {
+            return fallback("changed-source-prefix");
         }
-        changedLines.insert(feature.lineNumber);
-        wallChanged |= feature.kind == MapGeometryFeature::Kind::Line
-            && feature.label.trimmed().compare(QStringLiteral("wall"), Qt::CaseInsensitive) == 0;
-    }
-    QSet<int> removedLines = inserting ? QSet<int>{} : changedLines;
-    QVector<MapGeometryFeature> renderedFeatures;
-    for (const auto &feature : std::as_const(nextFeatures)) {
-        const bool updateClip = wallChanged && feature.kind == MapGeometryFeature::Kind::Area
-            && feature.scrapLineNumber == scrapLine;
-        if (updateClip) {
-            removedLines.insert(feature.lineNumber);
+        const int scrapLine = firstChanged.scrapLineNumber;
+        bool wallChanged = false;
+        for (qsizetype index = commonCount; index < tail.size(); ++index) {
+            const auto &feature = tail.at(index);
+            if (scrapLine <= 0 || feature.scrapLineNumber != scrapLine) {
+                return fallback("cross-scrap-tail");
+            }
+            changedLines.insert(feature.lineNumber);
+            wallChanged |= isWallFeature(feature);
         }
-        if ((inserting && changedLines.contains(feature.lineNumber)) || updateClip) {
-            renderedFeatures.append(feature);
+        removedLines = inserting ? QSet<int>{} : changedLines;
+        for (const auto &feature : std::as_const(nextFeatures)) {
+            const bool updateClip = wallChanged && feature.kind == MapGeometryFeature::Kind::Area
+                && feature.scrapLineNumber == scrapLine;
+            if (updateClip) {
+                removedLines.insert(feature.lineNumber);
+            }
+            if ((inserting && changedLines.contains(feature.lineNumber)) || updateClip) {
+                renderedFeatures.append(feature);
+            }
         }
     }
 

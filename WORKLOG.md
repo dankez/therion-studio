@@ -18,9 +18,14 @@ Active planning only. Completed history belongs in archive files. Stable archite
 - TH2 selection vertex lookup now uses the scene handle index instead of sorted whole-scene walks
   (`MapEditorSpatialIndexRepaintTest::selectionClicksDoNotScanWholeScene`). v42 offscreen, 12 selections: whole-scene
   scans 26 to 1; select-press median 93-108 to 41-44 ms; select total-to-idle median 270-298 to 213 ms with the magnifier
-  on and 239-248 to 190 ms with it off. Next: diagnose `map-scene-patch` fallbacks for delete and line move, patch
-  same-line-count edits first, then line renumbering (`lineNumber_`, item callbacks, interaction index,
-  `hiddenInspectorObjectLines_`). Measure a Windows Release build with the magnifier on and off before magnifier work.
+  on and 239-248 to 190 ms with it off.
+- TH2 in-place map edits now keep the scene as the patch baseline (revision-guarded) and same-identity geometry
+  changes patch only changed features plus same-scrap areas after wall changes
+  (`MapEditorSpatialIndexRepaintTest::vertexDragUndoRedoPatchesTheScene`). v42 offscreen vertex-drag undo:
+  `missing-baseline` full refresh to geometry patch, total-to-idle 1353 to 498 ms; drag commit unchanged (114 ms).
+  Next: diagnose delete/line-move fallbacks, then line renumbering for shifted identities (`lineNumber_`, item
+  callbacks, interaction index, `hiddenInspectorObjectLines_`). Measure a Windows Release build with the magnifier on
+  and off before magnifier work.
 
 - TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
   explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.

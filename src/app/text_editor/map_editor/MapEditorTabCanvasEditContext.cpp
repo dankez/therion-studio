@@ -115,7 +115,15 @@ MapEditorCanvasEditContext MapEditorTab::canvasEditContext()
         .discardPendingSceneRefreshAfterCommand = [this]() {
             mapSceneRefreshPending_ = false;
             selectionSyncState_.pendingPrimarySelectionItem_ = nullptr;
-            scenePatchController_.invalidate();
+            // The scene already mirrors this map transaction; keep it as the patch baseline
+            // so undo/redo can patch instead of rebuilding. A later edit invalidates it.
+            if (textEditor_ != nullptr && preserveMapUndoForSourceRevision_ > 0
+                && textEditor_->documentRevision() == preserveMapUndoForSourceRevision_) {
+                scenePatchController_.recordInPlaceEditProjection(sourceProjectionSnapshotForCurrentDocument(),
+                                                                  textEditor_->text());
+            } else {
+                scenePatchController_.invalidate();
+            }
             if (altitudeUnderlayEnabled_) {
                 refreshAltitudeUnderlay();
             }
