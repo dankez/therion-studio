@@ -26,6 +26,9 @@ Active planning only. Completed history belongs in archive files. Stable archite
   Next: diagnose delete/line-move fallbacks, then line renumbering for shifted identities (`lineNumber_`, item
   callbacks, interaction index, `hiddenInspectorObjectLines_`). Measure a Windows Release build with the magnifier on
   and off before magnifier work.
+- TH2 pointer hover/hit-testing ignores hidden Bezier control handles of unselected lines, which lie off the drawn
+  curve and made hover highlight a neighbouring line up to 12 px away
+  (`MapEditorSpatialIndexRepaintTest::wallHoverFollowsDrawnPath`; v42 locally: 39 of 420 wall samples to 0).
 
 - TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
   explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.

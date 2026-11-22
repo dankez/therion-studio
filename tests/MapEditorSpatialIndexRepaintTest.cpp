@@ -836,6 +836,140 @@ private slots:
                                 .arg(cursorScans)));
     }
 
+    // Hovering a point on a drawn wall must highlight that wall, not a line
+    // whose hidden Bezier control handle happens to lie under the pointer.
+    void wallHoverFollowsDrawnPath_data()
+    {
+        QTest::addColumn<QString>("fixture");
+        QTest::addColumn<int>("zoomSteps");
+        QTest::newRow("clopy01") << QStringLiteral(
+            "tests/fixtures/projects/map_editor_regression/real_cave_raster/data/clopy01.th2") << 2;
+    }
+
+    void wallHoverFollowsDrawnPath()
+    {
+        QFETCH(QString, fixture);
+        QFETCH(int, zoomSteps);
+        Harness harness;
+        QVERIFY(open(harness, readFixture(fixture)));
+        QWidget *viewport = harness.view->viewport();
+        for (int i = 0; i < zoomSteps; ++i) {
+            harness.tab->triggerZoomIn();
+        }
+        QTest::qWait(50);
+        QVector<QGraphicsPathItem *> walls;
+        for (QGraphicsItem *item : harness.scene->items()) {
+            auto *path = dynamic_cast<QGraphicsPathItem *>(item);
+            if (path != nullptr && isMapSceneWallItem(path) && path->isVisible()
+                && path->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeGeneric) {
+                walls.append(path);
+            }
+        }
+        QVERIFY(!walls.isEmpty());
+        const auto hovered = [&]() {
+            QSet<int> lines;
+            for (QGraphicsItem *item : harness.scene->items()) {
+                if (item->data(kMapSceneInteractionHoverRole).toBool()) {
+                    lines.insert(item->data(kMapSceneLineNumberRole).toInt());
+                }
+            }
+            return lines;
+        };
+        QHash<int, QGraphicsPathItem *> genericByLine;
+        for (QGraphicsItem *item : harness.scene->items()) {
+            auto *path = dynamic_cast<QGraphicsPathItem *>(item);
+            if (path != nullptr && path->isVisible()
+                && path->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeGeneric) {
+                genericByLine.insert(path->data(kMapSceneLineNumberRole).toInt(), path);
+            }
+        }
+        const auto pixelDistance = [&](int lineNumber, const QPoint &pixel) -> qreal {
+            QGraphicsPathItem *path = genericByLine.value(lineNumber);
+            if (path == nullptr) {
+                return -1.0;
+            }
+            const QPainterPath scenePath = path->mapToScene(path->path());
+            qreal best = 1e9;
+            for (const QPolygonF &polygon : scenePath.toSubpathPolygons()) {
+                for (int index = 0; index + 1 < polygon.size(); ++index) {
+                    const QPointF a = harness.view->mapFromScene(polygon.at(index));
+                    const QPointF b = harness.view->mapFromScene(polygon.at(index + 1));
+                    const QPointF ab = b - a;
+                    const qreal len2 = QPointF::dotProduct(ab, ab);
+                    const qreal t = len2 <= 1e-9 ? 0.0
+                        : qBound<qreal>(0.0, QPointF::dotProduct(QPointF(pixel) - a, ab) / len2, 1.0);
+                    const QPointF c = a + ab * t;
+                    best = qMin(best, std::hypot(pixel.x() - c.x(), pixel.y() - c.y()));
+                }
+            }
+            return best;
+        };
+        QStringList misses;
+        int samples = 0;
+        int ambiguous = 0;
+        int walked = 0;
+        for (QGraphicsPathItem *wall : std::as_const(walls)) {
+            if (++walked > 60) {
+                break;
+            }
+            const int line = wall->data(kMapSceneLineNumberRole).toInt();
+            harness.view->centerOn(wall->sceneBoundingRect().center());
+            QTest::qWait(10);
+            for (qreal percent = 0.05; percent < 1.0; percent += 0.15) {
+                const QPointF scenePoint = wall->mapToScene(wall->path().pointAtPercent(percent));
+                const QPoint pixel = harness.view->mapFromScene(scenePoint);
+                if (!viewport->rect().adjusted(10, 10, -10, -10).contains(pixel)) {
+                    continue;
+                }
+                ++samples;
+                sendPointer(viewport, QEvent::MouseMove, pixel, Qt::NoButton, Qt::NoButton);
+                QTest::qWait(20);
+                const QSet<int> lines = hovered();
+                if (!lines.contains(line)) {
+                    QList<int> got(lines.cbegin(), lines.cend());
+                    QStringList gotText;
+                    bool closerOther = false;
+                    for (int value : got) {
+                        const qreal distance = pixelDistance(value, pixel);
+                        closerOther |= distance >= 0.0 && distance <= pixelDistance(line, pixel) + 1.5;
+                        gotText << QStringLiteral("%1(%2px)").arg(value).arg(distance, 0, 'f', 1);
+                    }
+                    for (QGraphicsItem *item : harness.scene->items()) {
+                        if (item->data(kMapSceneInteractionHoverRole).toBool()) {
+                            // A visible point drawn on top of the wall legitimately wins hover.
+                            closerOther |= dynamic_cast<MapEditablePointItem *>(item) != nullptr && item->isVisible();
+                            gotText << QStringLiteral("[%1 sub%2 vis%3]")
+                                           .arg(QString::fromLatin1(typeid(*item).name()))
+                                           .arg(item->data(kMapSceneSelectionSubtypeRole).toInt())
+                                           .arg(item->isVisible());
+                        }
+                    }
+                    if (closerOther) {
+                        ++ambiguous;
+                        continue;
+                    }
+                    int rightOffset = -1;
+                    for (int dx = 1; dx <= 40 && rightOffset < 0; ++dx) {
+                        for (int sign : {1, -1}) {
+                            sendPointer(viewport, QEvent::MouseMove, pixel + QPoint(sign * dx, 0), Qt::NoButton,
+                                        Qt::NoButton);
+                            QTest::qWait(20);
+                            if (hovered().contains(line)) {
+                                rightOffset = sign * dx;
+                                break;
+                            }
+                        }
+                    }
+                    misses << QStringLiteral("line %1 @%2 got {%3} found at dx=%4")
+                                  .arg(line).arg(percent).arg(gotText.join(QLatin1Char(','))).arg(rightOffset);
+                }
+            }
+        }
+        qInfo("wall hover samples %d, ambiguous %d, misses %lld", samples, ambiguous,
+              static_cast<long long>(misses.size()));
+        QVERIFY2(misses.isEmpty(), qPrintable(misses.mid(0, 30).join(QLatin1Char('\n'))));
+    }
+
     // Undo/redo of an in-place vertex drag must patch only the changed geometry
     // instead of rebuilding a large scene, and the patched scene must match a
     // freshly loaded projection of the same text.

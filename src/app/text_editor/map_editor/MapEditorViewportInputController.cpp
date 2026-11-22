@@ -642,7 +642,8 @@ QGraphicsItem *nearestDirectVertexLikeItemForViewportPosition(MapEditorViewportI
                                                               bool requireSelected,
                                                               bool requireVisible)
 {
-    return nearestDirectVertexLikeMapItem(context.scene, context.view, viewportPosition, requireSelected, requireVisible);
+    return nearestDirectVertexLikeMapItem(context.scene, context.view, viewportPosition, requireSelected, requireVisible,
+                                          false);
 }
 
 QRectF sceneProbeRectForViewportRadius(const QGraphicsView *view,
@@ -2763,7 +2764,8 @@ QGraphicsItem *nearestDirectVertexLikeMapItem(const QGraphicsScene *scene,
                                               const QGraphicsView *view,
                                               const QPoint &viewportPosition,
                                               bool requireSelected,
-                                              bool requireVisible)
+                                              bool requireVisible,
+                                              bool includeHiddenControlHandles)
 {
     if (scene == nullptr || view == nullptr) {
         return nullptr;
@@ -2815,6 +2817,10 @@ QGraphicsItem *nearestDirectVertexLikeMapItem(const QGraphicsScene *scene,
             continue;
         }
         if (requireVisible && !candidate->isVisible()) {
+            continue;
+        }
+        if (!includeHiddenControlHandles && !candidate->isVisible()
+            && (mapSelectionHitPriority(candidate) == 0 || subtype == kMapSceneSelectionSubtypeLineControlConnector)) {
             continue;
         }
         if (requireSelected && !candidate->isSelected()) {

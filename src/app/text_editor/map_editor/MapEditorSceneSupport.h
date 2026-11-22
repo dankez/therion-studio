@@ -88,12 +88,14 @@ std::optional<QPointF> nearestWallGeometrySnapPoint(const QGraphicsScene *scene,
                                                    int excludedLineNumber = 0);
 
 // Nearest vertex-like editing item (vertices, controls, handles) whose centre
-// is within the direct-hit radius of a viewport position.
+// is within the direct-hit radius of a viewport position. Hidden Bezier
+// control handles lie off the drawn curve; pointer hit-testing excludes them.
 QGraphicsItem *nearestDirectVertexLikeMapItem(const QGraphicsScene *scene,
                                               const QGraphicsView *view,
                                               const QPoint &viewportPosition,
                                               bool requireSelected,
-                                              bool requireVisible);
+                                              bool requireVisible,
+                                              bool includeHiddenControlHandles = true);
 
 constexpr qreal kMapEditorCanvasFrameInset = 24.0;
 constexpr qreal kMapEditorCanvasPreviewInset = 20.0;

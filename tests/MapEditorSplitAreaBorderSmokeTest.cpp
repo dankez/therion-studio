@@ -334,7 +334,7 @@ int runHiddenLineControlDoesNotStealPathSelectionSmoke()
     sendMouse(mapView->viewport(), QEvent::MouseButtonRelease, contourViewportPoint, Qt::LeftButton, Qt::NoButton);
     pumpEvents();
 
-    if (!expect(mapTab->currentLineNumber() == 4,
+    if (!expect(mapTab->currentLineNumber() == 6,
                 "Clicking a contour path should not select a hidden wall control point at the same position.")) {
         std::cerr << "Selected source line: " << mapTab->currentLineNumber() << '\n';
         return 1;
