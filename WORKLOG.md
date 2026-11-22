@@ -29,6 +29,9 @@ Active planning only. Completed history belongs in archive files. Stable archite
 - TH2 pointer hover/hit-testing ignores hidden Bezier control handles of unselected lines, which lie off the drawn
   curve and made hover highlight a neighbouring line up to 12 px away
   (`MapEditorSpatialIndexRepaintTest::wallHoverFollowsDrawnPath`; v42 locally: 39 of 420 wall samples to 0).
+- TH2 partial renders (scene patch, feature refresh) apply the current view's screen-space metrics to new items, so a
+  slope `l-size` handle no longer falls back to a 12-scene-unit minimum after undo
+  (`MapEditorLinePreviewTest::partialSlopeRenderUsesCurrentViewMetrics`).
 
 - TH2 real-map acceptance remains open after automated source/draw/replay, empty-scrap, bounded decoration-sample,
   explicit magnifier/XVI clipping, and repaint checks. Preserve the earlier-scrap activation regression and safe fallback.

@@ -135,4 +135,6 @@ private:
 };
 
 void updateMapEditorScreenSpaceMetrics(QGraphicsScene *scene, const QTransform &viewTransform);
+// Applies the view metrics to freshly created items of a partial scene patch.
+void updateMapEditorScreenSpaceMetrics(const QVector<QGraphicsItem *> &items, const QTransform &viewTransform);
 }

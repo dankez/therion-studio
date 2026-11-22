@@ -546,6 +546,21 @@ void MapEditorLineDecorationItem::updateViewTransform(const QTransform &viewTran
     }
 }
 
+namespace {
+void updateItemScreenSpaceMetrics(QGraphicsItem *item, const QTransform &viewTransform)
+{
+    if (auto *decoration = dynamic_cast<MapEditorLineDecorationItem *>(item)) {
+        decoration->updateViewTransform(viewTransform);
+    } else if (auto *direction = dynamic_cast<MapEditorDirectionAidItem *>(item)) {
+        direction->updateViewTransform(viewTransform);
+    } else if (auto *lineHandle = dynamic_cast<MapLinePointSizeHandleItem *>(item)) {
+        lineHandle->updateViewTransform(viewTransform);
+    } else if (auto *pointHandle = dynamic_cast<MapPointOrientationHandleItem *>(item)) {
+        pointHandle->updateViewTransform(viewTransform);
+    }
+}
+}
+
 void updateMapEditorScreenSpaceMetrics(QGraphicsScene *scene, const QTransform &viewTransform)
 {
     if (scene == nullptr) {
@@ -553,15 +568,14 @@ void updateMapEditorScreenSpaceMetrics(QGraphicsScene *scene, const QTransform &
     }
     ++mapEditorPerformanceCounters().screenSpaceMetricPasses;
     for (QGraphicsItem *item : unsortedSceneItems(scene)) {
-        if (auto *decoration = dynamic_cast<MapEditorLineDecorationItem *>(item)) {
-            decoration->updateViewTransform(viewTransform);
-        } else if (auto *direction = dynamic_cast<MapEditorDirectionAidItem *>(item)) {
-            direction->updateViewTransform(viewTransform);
-        } else if (auto *lineHandle = dynamic_cast<MapLinePointSizeHandleItem *>(item)) {
-            lineHandle->updateViewTransform(viewTransform);
-        } else if (auto *pointHandle = dynamic_cast<MapPointOrientationHandleItem *>(item)) {
-            pointHandle->updateViewTransform(viewTransform);
-        }
+        updateItemScreenSpaceMetrics(item, viewTransform);
+    }
+}
+
+void updateMapEditorScreenSpaceMetrics(const QVector<QGraphicsItem *> &items, const QTransform &viewTransform)
+{
+    for (QGraphicsItem *item : items) {
+        updateItemScreenSpaceMetrics(item, viewTransform);
     }
 }
 

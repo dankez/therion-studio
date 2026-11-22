@@ -2424,11 +2424,18 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         scrapClipPathsForFeatures(clipGeometryFeatures != nullptr ? *clipGeometryFeatures : geometryFeatures,
                                   sourceBounds, previewBounds);
     const qreal vertexRadius = 3.8;
-    auto markGeometryItem = [createdGeometryItems](QGraphicsItem *item) {
+    // Partial renders add items into a live scene whose view will not run a full
+    // screen-space metrics pass, so those items get the current view metrics below.
+    QVector<QGraphicsItem *> partialRenderItems;
+    QVector<QGraphicsItem *> *const createdItems = createdGeometryItems != nullptr
+        ? createdGeometryItems
+        : (renderCanvasFrame ? nullptr : &partialRenderItems);
+    const qsizetype createdItemsStart = createdItems != nullptr ? createdItems->size() : 0;
+    auto markGeometryItem = [createdItems](QGraphicsItem *item) {
         if (item != nullptr) {
             item->setData(kMapItemRole, kMapItemGeometryValue);
-            if (createdGeometryItems != nullptr) {
-                createdGeometryItems->append(item);
+            if (createdItems != nullptr) {
+                createdItems->append(item);
             }
         }
     };
@@ -3340,6 +3347,11 @@ void renderMapWorkspaceScene(QGraphicsScene *scene,
         auto *emptyItem = makeMouseTransparent(scene->addText(QObject::tr("No Therion map objects were detected in this document."), QFont(QStringLiteral("Menlo"), 12)));
         emptyItem->setDefaultTextColor(canvasTheme.mutedText);
         emptyItem->setPos(previewBounds.left() + 16.0, previewBounds.top() + 44.0);
+    }
+
+    if (!renderCanvasFrame && createdItems != nullptr && !scene->views().isEmpty()) {
+        updateMapEditorScreenSpaceMetrics(createdItems->mid(createdItemsStart),
+                                          scene->views().constFirst()->viewportTransform());
     }
 }
 

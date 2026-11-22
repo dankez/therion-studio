@@ -352,6 +352,35 @@ private slots:
         }
     }
 
+    void partialSlopeRenderUsesCurrentViewMetrics()
+    {
+        // Scene patches and partial refreshes add items into a zoomed live view. The
+        // l-size handle must use that view's metrics instead of a 12-scene-unit minimum.
+        const auto features = collectGeometryFeatures(TherionDocumentParser::parseTokenLines(QStringLiteral(
+            "scrap s1 -projection plan\nline slope\n0 0\norientation 90\nl-size 40\n"
+            "100 0\norientation 90\nl-size 40\nendline\nendscrap\n")));
+        QVERIFY(!features.isEmpty());
+        QGraphicsScene scene;
+        QGraphicsView view(&scene);
+        view.setTransform(QTransform::fromScale(48, 48));
+        renderMapGeometryItemGroupForFeature(&scene, features.first(), QRectF(-10000, -10000, 20000, 20000), nullptr,
+                                             nullptr, {}, {}, {}, [](int, int, qreal, qreal) {},
+                                             loadMapEditorObjectStyleCatalog(QString()));
+        const qreal arrowLength = 40.0 * sceneCoordsScaleFactor(QRectF(-10000, -10000, 20000, 20000),
+                                                                mapEditorCanvasPreviewBounds());
+        QVERIFY(arrowLength < 12.0);
+        int handles = 0;
+        for (QGraphicsItem *item : scene.items()) {
+            if (auto *handle = dynamic_cast<MapLinePointSizeHandleItem *>(item)) {
+                ++handles;
+                // A horizontal arrow of l-size length plus 16 px view padding per side.
+                QVERIFY2(std::abs(handle->boundingRect().width() - (arrowLength + 32.0 / 48.0)) < 0.05,
+                         qPrintable(QString::number(handle->boundingRect().width())));
+            }
+        }
+        QCOMPARE(handles, 2);
+    }
+
     void explicitSlopeLengthsStayGeometry_data()
     {
         QTest::addColumn<bool>("segmented");
