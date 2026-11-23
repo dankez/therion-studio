@@ -59,6 +59,7 @@ bool TextEditorDocumentController::loadFile(const QString &filePath, QString *er
     (*context_.loading) = true;
     context_.editor->setPlainText(readResult.contents);
     (*context_.loading) = false;
+    loadedSourceContents_ = readResult.contents;
     const QTextCursor cursor = context_.editor->textCursor();
 
     TextEditorDocumentIoService::BuildLoadStateInputRequest loadInputRequest;
@@ -123,16 +124,21 @@ bool TextEditorDocumentController::save(QString *errorMessage)
         return false;
     }
 
+    const QString editorText = context_.editor->toPlainText();
+    const QString sourceContents = TextEditorDocumentIoService::contentsWithPreservedLineEndings(
+        editorText,
+        loadedSourceContents_);
     if (!TextEditorDocumentIoService::writeDocument(fileSystem_,
                                                     (*context_.filePath),
-                                                    context_.editor->toPlainText(),
+                                                    sourceContents,
                                                     (*context_.fileEncodingName),
                                                     errorMessage)) {
         return false;
     }
+    loadedSourceContents_ = sourceContents;
 
     TextEditorDocumentIoService::BuildSaveStateInputRequest saveInputRequest;
-    saveInputRequest.textContents = context_.editor->toPlainText();
+    saveInputRequest.textContents = editorText;
     saveInputRequest.fileEncodingName = (*context_.fileEncodingName);
     saveInputRequest.fileEncodingLabel = (*context_.fileEncodingLabel);
     saveInputRequest.savedEncodingStatusTemplate = tr("Saved using %1 encoding.");

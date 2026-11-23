@@ -1069,6 +1069,9 @@ Round-trip compatibility is mandatory for trusted editing.
 Required behavior:
 
 - opening and saving a supported Therion document without user edits shall not change document semantics
+- opening and saving a supported Therion document without user edits shall preserve each physical line ending exactly, including mixed CRLF, LF, and CR endings
+- after edits, source rows matched to the loaded document shall retain their original line endings; newly inserted rows shall use the first line-ending style present in the document, or LF when the document has no line ending
+- undoing edits back to the loaded text and saving shall restore the original physical line endings
 - parser and serializer behavior shall be validated against a maintained compatibility corpus of representative project files
 - compatibility-corpus verification shall be part of release-readiness checks
 

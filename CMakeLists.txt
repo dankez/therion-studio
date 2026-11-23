@@ -1837,6 +1837,24 @@ qt_add_executable(TextEditorDocumentControllerTest
 
 target_link_libraries(TextEditorDocumentControllerTest PRIVATE therion_core Qt6::Widgets)
 
+qt_add_executable(TextEditorDocumentControllerQTests
+    tests/TextEditorDocumentControllerQTestMain.cpp
+    src/app/text_editor/TextEditorDocumentController.cpp
+    src/app/text_editor/TextEditorDocumentController.h
+    src/app/text_editor/TextEditorDocumentIoService.cpp
+    src/app/text_editor/TextEditorDocumentIoService.h
+    src/app/text_editor/TextEditorDocumentPreconditionsService.cpp
+    src/app/text_editor/TextEditorDocumentPreconditionsService.h
+    src/app/text_editor/TextEditorDocumentPersistenceStateService.cpp
+    src/app/text_editor/TextEditorDocumentPersistenceStateService.h
+    src/app/text_editor/TextEditorDocumentWorkflowController.cpp
+    src/app/text_editor/TextEditorDocumentWorkflowController.h)
+
+target_link_libraries(TextEditorDocumentControllerQTests PRIVATE
+    therion_core
+    Qt6::Test
+    Qt6::Widgets)
+
 qt_add_executable(TextEditorDocumentServiceQTests
     tests/TextEditorDocumentServiceQTestMain.cpp
     tests/TextEditorDocumentIoServiceTest.cpp
@@ -2059,6 +2077,7 @@ set(THERION_UNIT_TEST_TARGETS
     MapEditorLineSplitPlannerTest
     TextEditorRawEditorQTests
     TextEditorDocumentControllerTest
+    TextEditorDocumentControllerQTests
     TextEditorDocumentServiceQTests
     TextEditorTabInteractionControllerTest
     ProjectSourceSnapshotTest

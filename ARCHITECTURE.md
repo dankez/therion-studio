@@ -88,6 +88,9 @@ The main source-model contracts are:
   projection used by Map consumers.
 - `TextEditorSourceTransactionController` and map source transaction helpers for user-visible source mutations, undo/redo,
   dirty state, revision checks, projection invalidation, and selection/cursor restoration.
+- `TextEditorDocumentController` shall retain the loaded physical source as the save baseline and use
+  `TextEditorDocumentIoService` to restore matched line endings after the editor's normalized text is serialized. New
+  unmatched rows use the source's preferred line ending; save success advances the baseline, while failed saves do not.
 
 Map draw transactions retain complete before/after source snapshots for atomic undo ownership, but apply only a
 surrogate-safe replacement range to the text document. `TherionDocumentEditor::sourceSnapshotReplacementEdit`

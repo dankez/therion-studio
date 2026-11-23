@@ -23,21 +23,29 @@ Active planning only. Completed history belongs in archive files. Stable archite
   changes patch only changed features plus same-scrap areas after wall changes
   (`MapEditorSpatialIndexRepaintTest::vertexDragUndoRedoPatchesTheScene`). v42 offscreen vertex-drag undo:
   `missing-baseline` full refresh to geometry patch, total-to-idle 1353 to 498 ms; drag commit unchanged (114 ms).
-  Line-renumbering work has passed all 51/51 MapEditor CTest cases, including `MapEditorSpatialIndexRepaintTest`
+  Line-renumbering work is committed and has passed all 51/51 MapEditor CTest cases, including `MapEditorSpatialIndexRepaintTest`
   (`shiftedIdentitiesPatchSceneOnDeleteAndUndo`) and `MapEditorInteractionPerformanceTest` (shifted vertex callbacks,
   hidden/faded lines, re-rendered areas and later scraps, handle index, full refresh when automatic source bounds
   change, rejected-delete visibility rollback, and UTF-8 save/undo/redo), plus `scripts/check_structure_constraints.py`.
-  Other full-refresh fallback reasons and real-map behavior still need separate verification. File-level CRLF round-trip
-  remains unsafe: a Qt offscreen probe confirmed `QPlainTextEdit::setPlainText` / `toPlainText` normalize CRLF to LF;
-  document load/save currently use those calls. The existing CRLF delete test exercises only the planner. Resolve and
-  test newline preservation separately before claiming complete lossless round-trip.
-  Provisional v42 Release baseline while the gate is blocked (two offscreen runs, magnifier off, 12 selections each):
+  Other full-refresh fallback reasons and real-map behavior still need separate verification. The document controller now
+  restores each matched source row's CRLF/LF/CR ending on save, keeps mixed endings on unchanged and undo-to-original
+  saves, and uses the first source ending for inserted rows; controller QTests cover mixed endings, insertion, edits,
+  undo, save/reopen, and a real temporary-file round-trip. This closes the shared text-document controller's newline
+  normalization path; other encoding and BOM behavior was not changed. Provisional v42 Release baseline (two offscreen
+  runs, magnifier off, 12 selections each):
   select press medians 40.8/40.1 ms, total-to-idle 186.0/185.5 ms. An instrumented second run measured 27 individual
   detail-refresh calls during selection, median 7.0 ms, max 10.0 ms; vertex-selection restoration after edits was
   115-133 ms in the first run. In 2,518 sampled select-phase stacks, details refresh appeared in 7.1% and widget drawing
   in 57.0%; two undo profiles show Objects tree rebuilding in 28-35% of sampled stacks. Inclusive samples can overlap,
   include worker threads and are not elapsed-time attribution. Preserve this distinction when comparing an optimization.
   Measure a Windows Release build with the magnifier on and off before magnifier work.
+- Fix pending commit approval: deleting a map object (and undo) on real v42 took up to ~10 s with the altitude underlay
+  on. Cause: after the edit the project index keeps stale scrap line numbers, so `mapEditorAltitudeScraps` lost the
+  scrap owner namespace and every station hit the project-wide fallback in `resolveStationReference`. Owners are now
+  matched by line confirmed by name, then by unique scrap name (one index pass); v42 offscreen delete 10.3 s -> 0.94 s,
+  underlay 9.4 s -> ~0.1 s (`MapEditorAltitudeUnderlayTest::staleIndexLinesKeepScrapNamespaceByName`). Patch/underlay
+  logs keep per-step timings (`ui_*_ms`, `map-altitude-underlay`). Follow-up: a map outside the project source graph
+  (no scrap owner) still pays the ~10 s fallback on each underlay refresh; cache or index that fallback.
 - TH2 pointer hover/hit-testing ignores hidden Bezier control handles of unselected lines, which lie off the drawn
   curve and made hover highlight a neighbouring line up to 12 px away
   (`MapEditorSpatialIndexRepaintTest::wallHoverFollowsDrawnPath`; v42 locally: 39 of 420 wall samples to 0).

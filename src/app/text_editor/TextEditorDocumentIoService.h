@@ -50,6 +50,9 @@ public:
                               const QString &fileEncodingName,
                               QString *errorMessage);
 
+    static QString contentsWithPreservedLineEndings(const QString &editorText,
+                                                    const QString &originalContents);
+
     static TextEditorDocumentPersistenceStateService::LoadStateInput buildLoadStateInput(
         const BuildLoadStateInputRequest &request);
 

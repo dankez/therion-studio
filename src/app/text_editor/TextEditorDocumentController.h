@@ -56,5 +56,6 @@ private:
 
     IFileSystem &fileSystem_;
     TextEditorDocumentContext context_;
+    QString loadedSourceContents_;
 };
 }
