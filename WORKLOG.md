@@ -23,9 +23,21 @@ Active planning only. Completed history belongs in archive files. Stable archite
   changes patch only changed features plus same-scrap areas after wall changes
   (`MapEditorSpatialIndexRepaintTest::vertexDragUndoRedoPatchesTheScene`). v42 offscreen vertex-drag undo:
   `missing-baseline` full refresh to geometry patch, total-to-idle 1353 to 498 ms; drag commit unchanged (114 ms).
-  Next: diagnose delete/line-move fallbacks, then line renumbering for shifted identities (`lineNumber_`, item
-  callbacks, interaction index, `hiddenInspectorObjectLines_`). Measure a Windows Release build with the magnifier on
-  and off before magnifier work.
+  Line-renumbering work has passed all 51/51 MapEditor CTest cases, including `MapEditorSpatialIndexRepaintTest`
+  (`shiftedIdentitiesPatchSceneOnDeleteAndUndo`) and `MapEditorInteractionPerformanceTest` (shifted vertex callbacks,
+  hidden/faded lines, re-rendered areas and later scraps, handle index, full refresh when automatic source bounds
+  change, rejected-delete visibility rollback, and UTF-8 save/undo/redo), plus `scripts/check_structure_constraints.py`.
+  Other full-refresh fallback reasons and real-map behavior still need separate verification. File-level CRLF round-trip
+  remains unsafe: a Qt offscreen probe confirmed `QPlainTextEdit::setPlainText` / `toPlainText` normalize CRLF to LF;
+  document load/save currently use those calls. The existing CRLF delete test exercises only the planner. Resolve and
+  test newline preservation separately before claiming complete lossless round-trip.
+  Provisional v42 Release baseline while the gate is blocked (two offscreen runs, magnifier off, 12 selections each):
+  select press medians 40.8/40.1 ms, total-to-idle 186.0/185.5 ms. An instrumented second run measured 27 individual
+  detail-refresh calls during selection, median 7.0 ms, max 10.0 ms; vertex-selection restoration after edits was
+  115-133 ms in the first run. In 2,518 sampled select-phase stacks, details refresh appeared in 7.1% and widget drawing
+  in 57.0%; two undo profiles show Objects tree rebuilding in 28-35% of sampled stacks. Inclusive samples can overlap,
+  include worker threads and are not elapsed-time attribution. Preserve this distinction when comparing an optimization.
+  Measure a Windows Release build with the magnifier on and off before magnifier work.
 - TH2 pointer hover/hit-testing ignores hidden Bezier control handles of unselected lines, which lie off the drawn
   curve and made hover highlight a neighbouring line up to 12 px away
   (`MapEditorSpatialIndexRepaintTest::wallHoverFollowsDrawnPath`; v42 locally: 39 of 420 wall samples to 0).
@@ -48,8 +60,9 @@ Active planning only. Completed history belongs in archive files. Stable archite
   backend, so they are not physical display frame-time measurements; the previous baseline was one run. Repeat
   against a display-backed/manual workflow before setting a latency SLA.
   Remaining measured follow-ups include inspector/highlighter/Blocks stage costs and real-map manual acceptance.
-  Earlier-scrap inserts and changed bounds/metadata deliberately retain full refresh; widen those paths only with
-  identity-remapping coverage and fresh measurements. Do not equate synthetic work counters with GUI latency.
+  Changed bounds/metadata deliberately retain full refresh. Earlier-scrap geometry inserts now patch with
+  identity-remapping coverage (51/51 MapEditor CTest cases green, including `MapEditorSpatialIndexRepaintTest`).
+  Do not equate synthetic work counters with GUI latency.
 - Verify `feat/3d-drawing-layer-visibility` in the installed viewer: Walls, Other Lines, and Drawing Points are
   independent; only drawing walls start visible. Confirm rock/slope toggles and preserved camera/coloring on a real
   TH2 map. This branch builds on the pending upstream-integration branch; keep its prior bulk-visibility test fix.

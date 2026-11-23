@@ -1,13 +1,17 @@
 #include "../src/app/text_editor/map_editor/MapEditorInspectorData.h"
 #include "../src/app/text_editor/map_editor/MapEditorPerformanceCounters.h"
+#include "../src/app/text_editor/map_editor/MapEditorSceneHandleIndex.h"
 #include "../src/app/text_editor/map_editor/MapEditorSceneInternals.h"
 #include "../src/app/text_editor/map_editor/MapEditorSceneSupport.h"
 #include "../src/app/text_editor/map_editor/MapEditorTab.h"
 #include "../src/app/text_editor/map_editor/MapEditorInteractiveDrawController.h"
+#include "../src/app/text_editor/map_editor/MapEditorObjectDetailsEditController.h"
 #include "../src/app/text_editor/map_editor/MapEditorScrapVisibility.h"
 #include "../src/app/text_editor/TextEditorSourceRewriteController.h"
+#include "../src/app/text_editor/TextEditorTab.h"
 #include "../src/core/CommandCatalogStore.h"
 #include "../src/core/QtFileSystem.h"
+#include "../src/core/TherionSourceLogicalDocument.h"
 #include "FakeSessionStore.h"
 
 #include <QApplication>
@@ -19,6 +23,8 @@
 #include <QMouseEvent>
 #include <QPalette>
 #include <QPlainTextEdit>
+#include <QPushButton>
+#include <QStandardItemModel>
 #include <QTextCursor>
 #include <QTextBlock>
 #include <QTemporaryDir>
@@ -401,12 +407,16 @@ private slots:
         QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchesBefore + 3);
     }
 
-    void earlierScrapInsertFallsBackWithoutStaleSourceIdentities()
+    void earlierScrapInsertPatchesWithoutStaleSourceIdentities()
     {
         Harness harness;
         const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n")
             + kFixture + QStringLiteral("scrap later -projection plan\npoint 30 -30 station -name A\nendscrap\n");
         QVERIFY(open(harness, before, 4));
+        const auto initialProjection = Th2GeometryProjection::fromText(before);
+        QCOMPARE(initialProjection.points().size(), 1);
+        const int initialStationLine = initialProjection.points().first().command.sourceRange.startLineNumber;
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(initialStationLine));
         harness.tab->triggerAddLine();
         auto *target = harness.tab->findChild<QComboBox *>(QStringLiteral("mapObjectQuickTargetScrapCombo"));
         QVERIFY(target != nullptr);
@@ -427,23 +437,299 @@ private slots:
         QTRY_VERIFY(!generations.isEmpty());
         const QString after = harness.tab->text();
         QVERIFY(after != before);
-        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore + 1);
-        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore);
-        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore + 1);
         const auto projection = Th2GeometryProjection::fromText(after);
         QCOMPARE(projection.points().size(), 1);
-        QVERIFY(harness.tab->testHasMapSceneItemForLine(
-            projection.points().first().command.sourceRange.startLineNumber));
+        const int shiftedStationLine = projection.points().first().command.sourceRange.startLineNumber;
+        QVERIFY(shiftedStationLine > initialStationLine);
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(shiftedStationLine));
         generations.clear();
         harness.tab->triggerUndo();
         QTRY_VERIFY(!generations.isEmpty());
         QCOMPARE(harness.tab->text(), before);
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(initialStationLine));
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore + 2);
         generations.clear();
         harness.tab->triggerRedo();
         QTRY_VERIFY(!generations.isEmpty());
         QCOMPARE(harness.tab->text(), after);
-        QVERIFY(harness.tab->testHasMapSceneItemForLine(
-            projection.points().first().command.sourceRange.startLineNumber));
+        QVERIFY(harness.tab->testHasMapSceneItemForLine(shiftedStationLine));
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchBefore + 3);
+    }
+
+    void shiftedVertexDragChangesTheIntendedObject()
+    {
+        Harness harness;
+        const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n") + kFixture;
+        QVERIFY(open(harness, before, 4));
+        harness.tab->goToLine(4);
+        auto *deleteObject = harness.tab->findChild<QPushButton *>(QStringLiteral("mapDeleteObjectButton"));
+        if (deleteObject == nullptr) {
+            for (auto *button : harness.tab->findChildren<QPushButton *>()) {
+                if (button->text() == QStringLiteral("Delete Object")) {
+                    deleteObject = button;
+                    break;
+                }
+            }
+        }
+        QVERIFY(deleteObject != nullptr);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        deleteObject->click();
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString afterDelete = harness.tab->text();
+        QVERIFY(afterDelete != before);
+
+        const auto projection = Th2GeometryProjection::fromText(afterDelete);
+        QVERIFY(projection.lines().size() >= 2);
+        const int shiftedLine = projection.lines().first().command.sourceRange.startLineNumber;
+        harness.tab->goToLine(shiftedLine);
+        QTest::qWait(30);
+        MapEditableGeometryVertexItem *anchor = nullptr;
+        for (QGraphicsItem *item : harness.view->scene()->items()) {
+            auto *candidate = dynamic_cast<MapEditableGeometryVertexItem *>(item);
+            if (candidate != nullptr && candidate->lineNumber() == shiftedLine
+                && candidate->geometryKind() == QStringLiteral("line") && candidate->vertexIndex() == 0) {
+                anchor = candidate;
+                break;
+            }
+        }
+        QVERIFY(anchor != nullptr);
+        harness.view->centerOn(anchor->scenePos());
+        QWidget *viewport = harness.view->viewport();
+        const QPoint start = harness.view->mapFromScene(anchor->scenePos());
+        sendPointer(viewport, QEvent::MouseMove, start, Qt::NoButton, Qt::NoButton);
+        QTest::qWait(30);
+        sendPointer(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        for (int step = 1; step <= 5; ++step) {
+            sendPointer(viewport, QEvent::MouseMove, start + QPoint(step * 6, step * 2), Qt::NoButton, Qt::LeftButton);
+            QCoreApplication::processEvents();
+        }
+        sendPointer(viewport, QEvent::MouseButtonRelease, start + QPoint(30, 10), Qt::LeftButton, Qt::NoButton);
+        QTRY_VERIFY(harness.tab->text() != afterDelete);
+        const QString afterDrag = harness.tab->text();
+        const QString secondHeader = QStringLiteral("line wall -id second\n");
+        const QString thirdHeader = QStringLiteral("line pit -id third\n");
+        QVERIFY(afterDelete.contains(secondHeader));
+        QVERIFY(afterDrag.contains(secondHeader));
+        QCOMPARE(afterDrag.section(thirdHeader, 1), afterDelete.section(thirdHeader, 1));
+        QVERIFY(afterDrag.section(secondHeader, 1, 1).section(thirdHeader, 0, 0)
+                != afterDelete.section(secondHeader, 1, 1).section(thirdHeader, 0, 0));
+        harness.tab->triggerUndo();
+        QTRY_COMPARE(harness.tab->text(), afterDelete);
+        harness.tab->triggerRedo();
+        QTRY_COMPARE(harness.tab->text(), afterDrag);
+    }
+
+    void shiftedVisibilitySurvivesDeleteUndoRedo_data()
+    {
+        QTest::addColumn<bool>("deleteFromTree");
+        QTest::addColumn<bool>("changedBounds");
+        QTest::newRow("details-patch") << false << false;
+        QTest::newRow("objects-tree-patch") << true << false;
+        QTest::newRow("details-full-refresh") << false << true;
+        QTest::newRow("objects-tree-full-refresh") << true << true;
+    }
+
+    void shiftedVisibilitySurvivesDeleteUndoRedo()
+    {
+        QFETCH(bool, deleteFromTree);
+        QFETCH(bool, changedBounds);
+        Harness harness;
+        QString fixture = kFixture;
+        if (changedBounds) {
+            fixture.replace(QStringLiteral("  0 0\n  100 0\nendline\n"),
+                            QStringLiteral("  -1000 0\n  100 0\nendline\n"));
+        }
+        const QString before = (changedBounds
+                                    ? QStringLiteral("# automatic bounds\n")
+                                    : QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n")) + fixture
+            + QStringLiteral("scrap later -projection plan\npoint 200 -60 station -name 1\nendscrap\n");
+        QVERIFY(open(harness, before, 4));
+        auto *tree = harness.tab->findChild<QTreeView *>(QStringLiteral("mapObjectsTree"));
+        QVERIFY(tree != nullptr);
+        const auto visibilityIndex = [&](int lineNumber) {
+            const QAbstractItemModel *model = tree->model();
+            const auto find = [&](auto &&self, const QModelIndex &parent) -> QModelIndex {
+                for (int row = 0; row < model->rowCount(parent); ++row) {
+                    const QModelIndex name = model->index(row, 0, parent);
+                    if (name.data(Qt::UserRole + 700).toInt() == lineNumber) {
+                        return model->index(row, 2, parent);
+                    }
+                    const QModelIndex child = self(self, name);
+                    if (child.isValid()) {
+                        return child;
+                    }
+                }
+                return {};
+            };
+            return find(find, {});
+        };
+        const auto clickVisibility = [&](int lineNumber) {
+            const QModelIndex index = visibilityIndex(lineNumber);
+            QVERIFY(index.isValid());
+            emit tree->clicked(index);
+            QCoreApplication::processEvents();
+        };
+        const auto checkVisibility = [&](const char *stage, int fadedLine, int hiddenLine, int hiddenArea, int hiddenScrap) {
+            QGraphicsPathItem *faded = linePath(harness.view->scene(), fadedLine);
+            QVERIFY(faded != nullptr);
+            QVERIFY(faded->isVisible());
+            QVERIFY2(faded->opacity() == kMapEditorFadedObjectOpacity, stage);
+            const auto handles = MapEditorSceneHandleIndex::itemsForLine(harness.view->scene(), fadedLine);
+            QVERIFY2(!handles.isEmpty(), stage);
+            bool foundVertex = false;
+            for (QGraphicsItem *handle : handles) {
+                QCOMPARE(handle->data(kMapSceneLineNumberRole).toInt(), fadedLine);
+                if (auto *vertex = dynamic_cast<MapEditableGeometryVertexItem *>(handle)) {
+                    QCOMPARE(vertex->lineNumber(), fadedLine);
+                    foundVertex = true;
+                }
+            }
+            QVERIFY2(foundVertex, stage);
+            QVERIFY(harness.tab->hiddenObjectLines().contains(hiddenLine));
+            QGraphicsPathItem *hidden = linePath(harness.view->scene(), hiddenLine);
+            QVERIFY(hidden != nullptr);
+            QVERIFY(!hidden->isVisible());
+            QVERIFY2(harness.tab->hiddenObjectLines().contains(hiddenArea), stage);
+            QVERIFY2(harness.tab->hiddenObjectLines().contains(hiddenScrap), stage);
+            bool foundArea = false;
+            for (QGraphicsItem *item : harness.view->scene()->items()) {
+                if (item->data(kMapSceneLineNumberRole).toInt() == hiddenArea
+                    && item->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeAreaFill) {
+                    foundArea = true;
+                    QVERIFY2(!item->isVisible(), stage);
+                }
+            }
+            QVERIFY2(foundArea, stage);
+        };
+        clickVisibility(8);
+        clickVisibility(12);
+        clickVisibility(12);
+        clickVisibility(23);
+        clickVisibility(23);
+        clickVisibility(27);
+        clickVisibility(27);
+        checkVisibility("before delete", 8, 12, 23, 27);
+
+        harness.tab->goToLine(4);
+        const int fullBefore = counter(mapEditorPerformanceCounters().sceneFullRefreshes);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        if (deleteFromTree) {
+            const QModelIndex index = visibilityIndex(4);
+            QVERIFY(index.isValid());
+            emit tree->clicked(index.siblingAtColumn(3));
+        } else {
+            QPushButton *deleteObject = nullptr;
+            for (auto *button : harness.tab->findChildren<QPushButton *>()) {
+                if (button->text() == QStringLiteral("Delete Object")) {
+                    deleteObject = button;
+                    break;
+                }
+            }
+            QVERIFY(deleteObject != nullptr);
+            deleteObject->click();
+        }
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString afterDelete = harness.tab->text();
+        QVERIFY(afterDelete != before);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore + (changedBounds ? 1 : 0));
+        checkVisibility("after delete", 4, 8, 19, 23);
+
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), before);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore + (changedBounds ? 2 : 0));
+        checkVisibility("after undo", 8, 12, 23, 27);
+        generations.clear();
+        harness.tab->triggerRedo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), afterDelete);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneFullRefreshes), fullBefore + (changedBounds ? 3 : 0));
+        checkVisibility("after redo", 4, 8, 19, 23);
+    }
+
+    void rejectedDeleteRestoresVisibility()
+    {
+        Harness harness;
+        const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n") + kFixture;
+        QVERIFY(open(harness, before, 4));
+        auto *textEditor = harness.tab->findChild<TextEditorTab *>();
+        QVERIFY(textEditor != nullptr);
+
+        int selectedLine = 4;
+        QSet<int> hidden{4, 12};
+        QSet<int> faded{8};
+        const QSet<int> hiddenBefore = hidden;
+        const QSet<int> fadedBefore = faded;
+        bool transactionCalled = false;
+        MapEditorObjectDetailsContext context;
+        context.textEditor = textEditor;
+        context.selectedObjectLineNumber = &selectedLine;
+        context.hiddenInspectorObjectLines = &hidden;
+        context.fadedInspectorObjectLines = &faded;
+        context.logicalSource.logicalCommandsForCurrentDocument = [textEditor]() {
+            return TherionSourceLogicalDocument::fromText(textEditor->text()).commands();
+        };
+        context.applySourceTextChangeWithSnapshot =
+            [&transactionCalled](const QString &, const QString &, const QString &, int, std::function<void()>) {
+                transactionCalled = true;
+                return TextEditorSourceTransactionResult::Stale;
+            };
+
+        MapEditorObjectDetailsEditController(context).deleteSelectedObjectFromSelection();
+        QVERIFY(transactionCalled);
+        QCOMPARE(textEditor->text(), before);
+        QCOMPARE(hidden, hiddenBefore);
+        QCOMPARE(faded, fadedBefore);
+    }
+
+    void patchedDeletePreservesSourceOnSaveUndoRedo()
+    {
+        Harness harness;
+        const QString before = QStringLiteral("##XTHERION## xth_me_area_adjust -10 -140 270 20\n") + kFixture
+            + QStringLiteral("# zachovan\u00fd koment\u00e1r\n");
+        const QString removed = QStringLiteral("line wall -id first\n  0 0\n  100 0\nendline\n");
+        QString after = before;
+        QVERIFY(after.contains(removed));
+        after.remove(removed);
+        QVERIFY(open(harness, before, 4));
+        harness.tab->goToLine(4);
+        QPushButton *deleteObject = nullptr;
+        for (auto *button : harness.tab->findChildren<QPushButton *>()) {
+            if (button->text() == QStringLiteral("Delete Object")) {
+                deleteObject = button;
+                break;
+            }
+        }
+        QVERIFY(deleteObject != nullptr);
+        const int patchesBefore = counter(mapEditorPerformanceCounters().sceneGeometryPatches);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        deleteObject->click();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), after);
+        QCOMPARE(counter(mapEditorPerformanceCounters().sceneGeometryPatches), patchesBefore + 1);
+        const auto verifySaved = [&](const QString &expected) {
+            QString error;
+            QVERIFY2(harness.tab->save(&error), qPrintable(error));
+            QFile saved(harness.tab->filePath());
+            QVERIFY(saved.open(QIODevice::ReadOnly));
+            QCOMPARE(saved.readAll(), expected.toUtf8());
+        };
+        verifySaved(after);
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), before);
+        verifySaved(before);
+        generations.clear();
+        harness.tab->triggerRedo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), after);
+        verifySaved(after);
     }
 
     void draftUndoRedoDoesNotEnumerateScene()

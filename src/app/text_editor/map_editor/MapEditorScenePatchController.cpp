@@ -2,6 +2,9 @@
 
 #include "MapEditorObjectDetailsLogic.h"
 #include "MapEditorPerformanceCounters.h"
+#include "MapEditorSceneHandleIndex.h"
+#include "MapEditorSceneInternals.h"
+#include "MapEditorSceneItems.h"
 #include "MapEditorSceneRefreshController.h"
 #include "../../../platform/DiagnosticLogging.h"
 
@@ -93,6 +96,138 @@ bool isWallFeature(const MapGeometryFeature &feature)
     return feature.kind == MapGeometryFeature::Kind::Line
         && feature.label.trimmed().compare(QStringLiteral("wall"), Qt::CaseInsensitive) == 0;
 }
+
+int mappedScrapLine(int scrapLine, const QHash<int, int> &scrapLineMap)
+{
+    return scrapLine > 0 ? scrapLineMap.value(scrapLine, scrapLine) : scrapLine;
+}
+
+bool featureMatchesWithShift(const MapGeometryFeature &before,
+                             const MapGeometryFeature &after,
+                             const QHash<int, int> &scrapLineMap)
+{
+    if (before.kind != after.kind
+        || mappedScrapLine(before.scrapLineNumber, scrapLineMap) != after.scrapLineNumber) {
+        return false;
+    }
+    MapGeometryFeature shifted = before;
+    shifted.lineNumber = after.lineNumber;
+    shifted.scrapLineNumber = after.scrapLineNumber;
+    return shifted == after;
+}
+
+void renumberSceneItems(QGraphicsScene *scene,
+                        const QHash<int, int> &renumberedLines,
+                        const QHash<int, int> &scrapLineMap)
+{
+    if (scene == nullptr || (renumberedLines.isEmpty() && scrapLineMap.isEmpty())) {
+        return;
+    }
+    for (QGraphicsItem *item : unsortedSceneItems(scene)) {
+        if (item == nullptr) {
+            continue;
+        }
+        if (!renumberedLines.isEmpty()) {
+            const int oldLine = item->data(kMapSceneLineNumberRole).toInt();
+            const auto mapped = oldLine > 0 ? renumberedLines.constFind(oldLine) : renumberedLines.constEnd();
+            if (mapped != renumberedLines.constEnd()) {
+                const int newLine = mapped.value();
+                item->setData(kMapSceneLineNumberRole, newLine);
+                if (auto *pointItem = dynamic_cast<MapEditablePointItem *>(item)) {
+                    pointItem->setLineNumber(newLine);
+                } else if (auto *vertexItem = dynamic_cast<MapEditableGeometryVertexItem *>(item)) {
+                    vertexItem->setLineNumber(newLine);
+                } else if (auto *sizeHandle = dynamic_cast<MapLinePointSizeHandleItem *>(item)) {
+                    sizeHandle->setLineNumber(newLine);
+                } else if (auto *orientationHandle = dynamic_cast<MapPointOrientationHandleItem *>(item)) {
+                    orientationHandle->setLineNumber(newLine);
+                } else {
+                    const QString tooltip = item->toolTip();
+                    if (!tooltip.isEmpty()) {
+                        const QString oldSuffix = QObject::tr("Source line %1").arg(oldLine);
+                        if (tooltip.endsWith(oldSuffix)) {
+                            const QString newSuffix = QObject::tr("Source line %1").arg(newLine);
+                            item->setToolTip(tooltip.left(tooltip.size() - oldSuffix.size()) + newSuffix);
+                        }
+                    }
+                }
+            }
+        }
+        if (!scrapLineMap.isEmpty()) {
+            const int oldScrapLine = item->data(kMapSceneStationScrapRole).toInt();
+            const auto mappedScrap = oldScrapLine > 0
+                ? scrapLineMap.constFind(oldScrapLine)
+                : scrapLineMap.constEnd();
+            if (mappedScrap != scrapLineMap.constEnd()) {
+                item->setData(kMapSceneStationScrapRole, mappedScrap.value());
+            }
+        }
+    }
+}
+
+void remapItemsByLine(QHash<int, QGraphicsItem *> *itemsByLine, const QHash<int, int> &renumberedLines)
+{
+    if (itemsByLine == nullptr || renumberedLines.isEmpty()) {
+        return;
+    }
+    QHash<int, QGraphicsItem *> remapped;
+    remapped.reserve(itemsByLine->size());
+    for (auto it = itemsByLine->cbegin(); it != itemsByLine->cend(); ++it) {
+        const auto mapped = renumberedLines.constFind(it.key());
+        remapped.insert(mapped != renumberedLines.constEnd() ? mapped.value() : it.key(), it.value());
+    }
+    *itemsByLine = std::move(remapped);
+}
+
+void remapVertexItemsByKey(QHash<QString, QGraphicsItem *> *vertexItemsByKey, const QHash<int, int> &renumberedLines)
+{
+    if (vertexItemsByKey == nullptr || renumberedLines.isEmpty()) {
+        return;
+    }
+    QHash<QString, QGraphicsItem *> remapped;
+    remapped.reserve(vertexItemsByKey->size());
+    for (auto it = vertexItemsByKey->cbegin(); it != vertexItemsByKey->cend(); ++it) {
+        const QString &key = it.key();
+        const qsizetype colon = key.indexOf(QLatin1Char(':'));
+        if (colon > 0) {
+            bool ok = false;
+            const int oldLine = QStringView(key).left(colon).toInt(&ok);
+            if (ok) {
+                const auto mapped = renumberedLines.constFind(oldLine);
+                if (mapped != renumberedLines.constEnd()) {
+                    remapped.insert(QString::number(mapped.value()) + key.mid(colon), it.value());
+                    continue;
+                }
+            }
+        }
+        remapped.insert(key, it.value());
+    }
+    *vertexItemsByKey = std::move(remapped);
+}
+
+void remapVisibilityLineSet(QSet<int> *lines,
+                            const QSet<int> &removedLines,
+                            const QSet<int> &renderedLines,
+                            const QHash<int, int> &renumberedLines)
+{
+    if (lines == nullptr || lines->isEmpty() || (removedLines.isEmpty() && renumberedLines.isEmpty())) {
+        return;
+    }
+    QSet<int> remapped;
+    remapped.reserve(lines->size());
+    for (int line : std::as_const(*lines)) {
+        const auto mapped = renumberedLines.constFind(line);
+        if (mapped != renumberedLines.constEnd()) {
+            remapped.insert(mapped.value());
+            continue;
+        }
+        if (removedLines.contains(line) && !renderedLines.contains(line)) {
+            continue;
+        }
+        remapped.insert(line);
+    }
+    *lines = std::move(remapped);
+}
 }
 
 void MapEditorScenePatchController::recordProjection(MapEditorSourceProjectionSnapshotPtr snapshot,
@@ -155,11 +290,22 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
     if (next == nullptr) {
         return fallback("missing-projection");
     }
-    if (next->sourceBounds != snapshot_->sourceBounds) {
-        return fallback("changed-source-bounds");
-    }
-    if (nonGeometryCommands(*snapshot_) != nonGeometryCommands(*next)) {
+    const bool changedSourceBounds = next->sourceBounds != snapshot_->sourceBounds;
+    const QVector<QPair<QString, int>> beforeNonGeom = nonGeometryCommands(*snapshot_);
+    const QVector<QPair<QString, int>> afterNonGeom = nonGeometryCommands(*next);
+    if (beforeNonGeom.size() != afterNonGeom.size()) {
         return fallback("changed-nongeometry-or-identities");
+    }
+    QHash<int, int> scrapLineMap;
+    for (qsizetype index = 0; index < beforeNonGeom.size(); ++index) {
+        if (beforeNonGeom.at(index).first != afterNonGeom.at(index).first) {
+            return fallback("changed-nongeometry-or-identities");
+        }
+        const int beforeLine = beforeNonGeom.at(index).second;
+        const int afterLine = afterNonGeom.at(index).second;
+        if (beforeLine > 0 && beforeLine != afterLine) {
+            scrapLineMap.insert(beforeLine, afterLine);
+        }
     }
     if (featuresPending_) {
         features_ = patchGeometryFeatures(*snapshot_, context.orientationApplicabilityByCommand);
@@ -168,82 +314,75 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
     QVector<MapGeometryFeature> nextFeatures =
         patchGeometryFeatures(*next, context.orientationApplicabilityByCommand);
     const QString nextText = context.documentText();
-    QSet<int> changedLines;
-    QSet<int> removedLines;
-    QVector<MapGeometryFeature> renderedFeatures;
-    if (features_.size() == nextFeatures.size()) {
-        // Same feature identities: re-render only the changed features. Shifted line
-        // numbers keep the full-refresh fallback instead of leaving stale callbacks.
-        QSet<int> wallChangedScraps;
-        for (qsizetype index = 0; index < nextFeatures.size(); ++index) {
-            const auto &before = features_.at(index);
-            const auto &after = nextFeatures.at(index);
-            if (before.lineNumber != after.lineNumber) {
-                return fallback("shifted-feature-identities");
-            }
-            if (before == after) {
-                continue;
-            }
-            changedLines.insert(after.lineNumber);
-            if (isWallFeature(before)) {
-                wallChangedScraps.insert(before.scrapLineNumber);
-            }
-            if (isWallFeature(after)) {
-                wallChangedScraps.insert(after.scrapLineNumber);
-            }
-        }
-        removedLines = changedLines;
-        for (const auto &feature : std::as_const(nextFeatures)) {
-            const bool updateClip = feature.kind == MapGeometryFeature::Kind::Area
-                && wallChangedScraps.contains(feature.scrapLineNumber);
-            if (updateClip) {
-                removedLines.insert(feature.lineNumber);
-            }
-            if (removedLines.contains(feature.lineNumber)) {
-                renderedFeatures.append(feature);
-            }
-        }
-    } else {
-        const qsizetype commonCount = qMin(features_.size(), nextFeatures.size());
-        for (qsizetype index = 0; index < commonCount; ++index) {
-            if (!(features_.at(index) == nextFeatures.at(index))) {
-                return fallback("changed-retained-geometry");
-            }
-        }
 
-        // Only append/remove complete trailing geometry. Shifted identities and arbitrary
-        // rewrites retain the full-refresh fallback instead of leaving stale callbacks.
-        const bool inserting = nextFeatures.size() > features_.size();
-        const auto &tail = inserting ? nextFeatures : features_;
-        const auto &tailSnapshot = inserting ? next : snapshot_;
-        const auto &firstChanged = tail.at(commonCount);
-        const auto ref = tailSnapshot->geometryProjection.objectRefAtLineNumber(firstChanged.lineNumber);
-        const auto *command = tailSnapshot->geometryProjection.commandForObjectRef(ref);
-        if (command == nullptr || command->sourceRange.startOffset < 0
-            || QStringView(text_).left(command->sourceRange.startOffset)
-                != QStringView(nextText).left(command->sourceRange.startOffset)) {
-            return fallback("changed-source-prefix");
+    const qsizetype beforeCount = features_.size();
+    const qsizetype afterCount = nextFeatures.size();
+    qsizetype prefix = 0;
+    while (prefix < beforeCount && prefix < afterCount && features_.at(prefix) == nextFeatures.at(prefix)) {
+        ++prefix;
+    }
+    qsizetype suffix = 0;
+    while (prefix + suffix < beforeCount && prefix + suffix < afterCount
+           && featureMatchesWithShift(features_.at(beforeCount - 1 - suffix),
+                                      nextFeatures.at(afterCount - 1 - suffix),
+                                      scrapLineMap)) {
+        ++suffix;
+    }
+
+    const qsizetype beforeMidEnd = beforeCount - suffix;
+    const qsizetype afterMidEnd = afterCount - suffix;
+    constexpr qsizetype kMaxChangedWindowFeatures = 64;
+    if ((beforeMidEnd - prefix) + (afterMidEnd - prefix) > kMaxChangedWindowFeatures) {
+        return fallback("large-change-window");
+    }
+
+    QSet<int> removedLines;
+    QSet<int> renderedLines;
+    QSet<int> wallChangedScraps;
+    QHash<int, int> renumberedLines;
+    QHash<int, int> suffixAfterToBefore;
+    for (qsizetype index = prefix; index < beforeMidEnd; ++index) {
+        const auto &before = features_.at(index);
+        removedLines.insert(before.lineNumber);
+        if (isWallFeature(before)) {
+            wallChangedScraps.insert(mappedScrapLine(before.scrapLineNumber, scrapLineMap));
         }
-        const int scrapLine = firstChanged.scrapLineNumber;
-        bool wallChanged = false;
-        for (qsizetype index = commonCount; index < tail.size(); ++index) {
-            const auto &feature = tail.at(index);
-            if (scrapLine <= 0 || feature.scrapLineNumber != scrapLine) {
-                return fallback("cross-scrap-tail");
-            }
-            changedLines.insert(feature.lineNumber);
-            wallChanged |= isWallFeature(feature);
+    }
+    for (qsizetype index = prefix; index < afterMidEnd; ++index) {
+        const auto &after = nextFeatures.at(index);
+        renderedLines.insert(after.lineNumber);
+        if (isWallFeature(after)) {
+            wallChangedScraps.insert(after.scrapLineNumber);
         }
-        removedLines = inserting ? QSet<int>{} : changedLines;
-        for (const auto &feature : std::as_const(nextFeatures)) {
-            const bool updateClip = wallChanged && feature.kind == MapGeometryFeature::Kind::Area
-                && feature.scrapLineNumber == scrapLine;
-            if (updateClip) {
-                removedLines.insert(feature.lineNumber);
-            }
-            if ((inserting && changedLines.contains(feature.lineNumber)) || updateClip) {
-                renderedFeatures.append(feature);
-            }
+    }
+    for (qsizetype index = 0; index < suffix; ++index) {
+        const auto &before = features_.at(beforeCount - 1 - index);
+        const auto &after = nextFeatures.at(afterCount - 1 - index);
+        if (before.lineNumber != after.lineNumber) {
+            renumberedLines.insert(before.lineNumber, after.lineNumber);
+        }
+        suffixAfterToBefore.insert(after.lineNumber, before.lineNumber);
+    }
+
+    QHash<int, int> visibilityRenumberedLines = renumberedLines;
+    visibilityRenumberedLines.insert(scrapLineMap);
+    if (changedSourceBounds) {
+        remapVisibilityLineSet(context.hiddenInspectorObjectLines, removedLines, renderedLines, visibilityRenumberedLines);
+        remapVisibilityLineSet(context.fadedInspectorObjectLines, removedLines, renderedLines, visibilityRenumberedLines);
+        return fallback("changed-source-bounds");
+    }
+    QVector<MapGeometryFeature> renderedFeatures;
+    for (const auto &feature : std::as_const(nextFeatures)) {
+        const bool updateClip = feature.kind == MapGeometryFeature::Kind::Area
+            && wallChangedScraps.contains(feature.scrapLineNumber);
+        if (updateClip && !renderedLines.contains(feature.lineNumber)) {
+            const int oldLine = suffixAfterToBefore.value(feature.lineNumber, feature.lineNumber);
+            removedLines.insert(oldLine);
+            renumberedLines.remove(oldLine);
+            renderedLines.insert(feature.lineNumber);
+        }
+        if (renderedLines.contains(feature.lineNumber)) {
+            renderedFeatures.append(feature);
         }
     }
 
@@ -255,6 +394,12 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
         for (int line : std::as_const(removedLines)) {
             removeMapGeometryItemGroupForLine(scene, line, context.itemsByLine, context.vertexItemsByKey);
         }
+        if (!renumberedLines.isEmpty() || !scrapLineMap.isEmpty()) {
+            renumberSceneItems(scene, renumberedLines, scrapLineMap);
+            MapEditorSceneHandleIndex::remapLineNumbers(scene, renumberedLines);
+            remapItemsByLine(context.itemsByLine, renumberedLines);
+            remapVertexItemsByKey(context.vertexItemsByKey, renumberedLines);
+        }
         QHash<int, QGraphicsItem *> addedItems;
         QHash<QString, QGraphicsItem *> addedVertices;
         renderMapWorkspaceScene(scene, QString(), {}, renderedFeatures, next->sourceBounds, false,
@@ -264,6 +409,8 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
         context.itemsByLine->insert(addedItems);
         context.vertexItemsByKey->insert(addedVertices);
     }
+    remapVisibilityLineSet(context.hiddenInspectorObjectLines, removedLines, renderedLines, visibilityRenumberedLines);
+    remapVisibilityLineSet(context.fadedInspectorObjectLines, removedLines, renderedLines, visibilityRenumberedLines);
     recordProjection(next, nextText, std::move(nextFeatures));
     const qint64 sceneNs = logTiming ? timer.nsecsElapsed() - preparationNs : 0;
     if (!restoreSceneRefreshSelection(context) && context.selectMapLine && context.currentLineNumber) {
@@ -281,7 +428,9 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
     }
     mapEditorPerformanceCounters().sceneGeometryPatches.fetch_add(1, std::memory_order_relaxed);
     if (logTiming) {
-        qInfo().nospace() << "map-scene-patch outcome=applied changed_features=" << changedLines.size()
+        qInfo().nospace() << "map-scene-patch outcome=applied changed_features=" << renderedLines.size()
+                         << " removed_features=" << removedLines.size()
+                         << " renumbered_features=" << renumberedLines.size()
                          << " preparation_ns=" << preparationNs << " scene_ns=" << sceneNs
                          << " ui_ns=" << timer.nsecsElapsed() - preparationNs - sceneNs
                          << " elapsed_ns=" << timer.nsecsElapsed();

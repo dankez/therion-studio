@@ -591,11 +591,15 @@ void MapEditorInspectorObjectController::handleInspectorObjectClicked(const QMod
         if (!requireSourceTransaction(context_, tr("Cannot delete map object without map source transaction support."))) {
             return;
         }
-        const auto postDeleteHook = [this, deletePlan]() {
-            MapEditorObjectVisibilityLines visibility = visibilityLines();
-            for (int removedLineNumber : deletePlan.removedLineNumbers) {
-                visibility.remove(removedLineNumber);
-            }
+        const QSet<int> previousHidden = context_.hiddenObjectLines != nullptr
+            ? *context_.hiddenObjectLines : QSet<int>();
+        const QSet<int> previousFaded = context_.fadedObjectLines != nullptr
+            ? *context_.fadedObjectLines : QSet<int>();
+        MapEditorObjectVisibilityLines visibility = visibilityLines();
+        for (int removedLineNumber : deletePlan.removedLineNumbers) {
+            visibility.remove(removedLineNumber);
+        }
+        const auto postDeleteHook = [this]() {
             *context_.lastClickedLineNumber = 0;
         };
 
@@ -607,6 +611,12 @@ void MapEditorInspectorObjectController::handleInspectorObjectClicked(const QMod
                                    deletePlan.focusLineAfterDelete,
                                    postDeleteHook);
         if (transactionResult != TextEditorSourceTransactionResult::Applied) {
+            if (context_.hiddenObjectLines != nullptr) {
+                *context_.hiddenObjectLines = previousHidden;
+            }
+            if (context_.fadedObjectLines != nullptr) {
+                *context_.fadedObjectLines = previousFaded;
+            }
             if (context_.refreshToolbarSummary) {
                 context_.refreshToolbarSummary();
             }

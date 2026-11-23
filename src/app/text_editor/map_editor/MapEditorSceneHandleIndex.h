@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsItem>
+#include <QHash>
 #include <QPointF>
 #include <QRectF>
 #include <QVector>
@@ -42,6 +43,7 @@ namespace MapEditorSceneHandleIndex
 void track(QGraphicsItem *item, MapEditorSceneHandleKind kind, int lineNumber, const QPointF &sceneKey);
 void untrack(QGraphicsItem *item, const QGraphicsScene *scene);
 void moveKey(QGraphicsItem *item, const QPointF &sceneKey);
+void remapLineNumbers(const QGraphicsScene *scene, const QHash<int, int> &lineMap);
 
 QVector<QGraphicsItem *> itemsInRect(const QGraphicsScene *scene, const QRectF &sceneRect);
 QVector<QGraphicsItem *> itemsForLine(const QGraphicsScene *scene, int lineNumber);

@@ -263,6 +263,12 @@ public:
         return lineNumber_;
     }
 
+    void setLineNumber(int lineNumber)
+    {
+        lineNumber_ = lineNumber;
+        setToolTip(QObject::tr("Point handle (line %1)").arg(lineNumber_));
+    }
+
 protected:
     QRectF boundingRect() const override
     {
@@ -587,6 +593,12 @@ public:
     int lineNumber() const
     {
         return lineNumber_;
+    }
+
+    void setLineNumber(int lineNumber)
+    {
+        lineNumber_ = lineNumber;
+        updateToolTip();
     }
 
     QString geometryKind() const
@@ -1258,6 +1270,12 @@ public:
         MapEditorSceneHandleIndex::untrack(this, scene());
     }
 
+    void setLineNumber(int lineNumber)
+    {
+        lineNumber_ = lineNumber;
+        setToolTip(QObject::tr("Line point orientation / l-size handle (line %1)").arg(lineNumber_));
+    }
+
     void updateViewTransform(const QTransform &viewTransform)
     {
         bool invertible = false;
@@ -1536,6 +1554,12 @@ public:
     ~MapPointOrientationHandleItem() override
     {
         MapEditorSceneHandleIndex::untrack(this, scene());
+    }
+
+    void setLineNumber(int lineNumber)
+    {
+        lineNumber_ = lineNumber;
+        setToolTip(QObject::tr("Point orientation handle (line %1)").arg(lineNumber_));
     }
 
     void updateViewTransform(const QTransform &viewTransform)

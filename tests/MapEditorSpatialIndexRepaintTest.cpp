@@ -19,6 +19,7 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QRandomGenerator>
 #include <QScreen>
 #include <QScrollBar>
@@ -1036,6 +1037,144 @@ private slots:
         QVERIFY(!wallPath(fresh.scene, wallLine).isEmpty());
         QCOMPARE(wallPath(harness.scene, wallLine), wallPath(fresh.scene, wallLine));
         QCOMPARE(harness.tab->testHasMapSceneItemForLine(wallLine), true);
+    }
+
+    // Deleting a vertex or object in the middle of a document shifts every later
+    // feature's line number; scene patching must renumber retained items, handle
+    // index, and lookup tables instead of falling back to a full scene rebuild.
+    void shiftedIdentitiesPatchSceneOnDeleteAndUndo()
+    {
+        Harness harness;
+        const QString before = readFixture(QStringLiteral(
+            "tests/fixtures/projects/map_editor_regression/real_cave_raster/data/clopy01.th2"));
+        QVERIFY(open(harness, before));
+
+        QVector<int> wallLines;
+        for (QGraphicsItem *item : harness.scene->items()) {
+            auto *path = dynamic_cast<QGraphicsPathItem *>(item);
+            if (path != nullptr && isMapSceneWallItem(path)
+                && path->data(kMapSceneSelectionSubtypeRole).toInt() == kMapSceneSelectionSubtypeGeneric) {
+                wallLines.append(path->data(kMapSceneLineNumberRole).toInt());
+            }
+        }
+        std::sort(wallLines.begin(), wallLines.end());
+        wallLines.erase(std::unique(wallLines.begin(), wallLines.end()), wallLines.end());
+        QVERIFY(wallLines.size() >= 2);
+
+        MapEditableGeometryVertexItem *targetAnchor = nullptr;
+        int targetWallLine = 0;
+        for (int candidateLine : std::as_const(wallLines)) {
+            QVector<MapEditableGeometryVertexItem *> anchors;
+            for (QGraphicsItem *item : MapEditorSceneHandleIndex::itemsForLine(harness.scene, candidateLine)) {
+                auto *vertex = dynamic_cast<MapEditableGeometryVertexItem *>(item);
+                if (vertex != nullptr && vertex->geometryKind() == QStringLiteral("line")) {
+                    anchors.append(vertex);
+                }
+            }
+            if (anchors.size() >= 4 && candidateLine < wallLines.last()) {
+                std::sort(anchors.begin(), anchors.end(), [](const auto *a, const auto *b) {
+                    return a->vertexIndex() < b->vertexIndex();
+                });
+                targetWallLine = candidateLine;
+                targetAnchor = anchors.at(1);
+                break;
+            }
+        }
+        QVERIFY(targetAnchor != nullptr);
+        const int laterWallLine = wallLines.last();
+        QVERIFY(laterWallLine > targetWallLine);
+
+        auto findButton = [&](const QString &label) -> QPushButton * {
+            for (QPushButton *button : harness.tab->findChildren<QPushButton *>()) {
+                if (button->text() == label) {
+                    return button;
+                }
+            }
+            return nullptr;
+        };
+
+        auto &counters = mapEditorPerformanceCounters();
+        const int fullBefore = counter(counters.sceneFullRefreshes);
+        const int patchesBefore = counter(counters.sceneGeometryPatches);
+        const int fallbacksBefore = counter(counters.scenePatchFallbacks);
+
+        // Select an interior vertex on targetWallLine and delete it.
+        harness.tab->goToLine(targetWallLine);
+        QTest::qWait(30);
+        harness.scene->clearSelection();
+        targetAnchor->setVisible(true);
+        targetAnchor->setSelected(true);
+        QTest::qWait(30);
+
+        QPushButton *deletePointButton = findButton(QStringLiteral("Delete Point"));
+        QVERIFY(deletePointButton != nullptr);
+        QSignalSpy generations(harness.tab.get(), &MapEditorTab::sceneProjectionRefreshCompleted);
+        deletePointButton->click();
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString afterVertexDelete = harness.tab->text();
+        QVERIFY(afterVertexDelete != before);
+
+        const int lineDelta = before.count(QLatin1Char('\n')) - afterVertexDelete.count(QLatin1Char('\n'));
+        QVERIFY(lineDelta > 0);
+        const int shiftedLaterLine = laterWallLine - lineDelta;
+
+        QCOMPARE(counter(counters.sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(counters.scenePatchFallbacks), fallbacksBefore);
+        QCOMPARE(counter(counters.sceneGeometryPatches), patchesBefore + 1);
+        QCOMPARE(harness.tab->testHasMapSceneItemForLine(shiftedLaterLine), true);
+        const auto shiftedHandles = MapEditorSceneHandleIndex::itemsForLine(harness.scene, shiftedLaterLine);
+        QVERIFY(!shiftedHandles.isEmpty());
+        for (QGraphicsItem *handle : shiftedHandles) {
+            QCOMPARE(handle->data(kMapSceneLineNumberRole).toInt(), shiftedLaterLine);
+            if (auto *vertex = dynamic_cast<MapEditableGeometryVertexItem *>(handle)) {
+                QCOMPARE(vertex->lineNumber(), shiftedLaterLine);
+            }
+        }
+
+        // Undo and redo vertex delete must also patch the scene.
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), before);
+        QCOMPARE(harness.tab->testHasMapSceneItemForLine(laterWallLine), true);
+        QVERIFY(!MapEditorSceneHandleIndex::itemsForLine(harness.scene, laterWallLine).isEmpty());
+
+        generations.clear();
+        harness.tab->triggerRedo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), afterVertexDelete);
+        QCOMPARE(counter(counters.sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(counters.scenePatchFallbacks), fallbacksBefore);
+        QCOMPARE(counter(counters.sceneGeometryPatches), patchesBefore + 3);
+
+        // Now delete the whole targetWallLine object and verify shifted renumbering + undo.
+        harness.tab->goToLine(targetWallLine);
+        QTest::qWait(30);
+        QPushButton *deleteObjectButton = findButton(QStringLiteral("Delete Object"));
+        QVERIFY(deleteObjectButton != nullptr);
+        generations.clear();
+        deleteObjectButton->click();
+        QTRY_VERIFY(!generations.isEmpty());
+        const QString afterObjectDelete = harness.tab->text();
+        QVERIFY(afterObjectDelete != afterVertexDelete);
+
+        const int objectDeleteDelta = before.count(QLatin1Char('\n')) - afterObjectDelete.count(QLatin1Char('\n'));
+        QVERIFY(objectDeleteDelta > lineDelta);
+        const int laterAfterObjectDelete = laterWallLine - objectDeleteDelta;
+        QCOMPARE(counter(counters.sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(counters.scenePatchFallbacks), fallbacksBefore);
+        QCOMPARE(counter(counters.sceneGeometryPatches), patchesBefore + 4);
+        QCOMPARE(harness.tab->testHasMapSceneItemForLine(laterAfterObjectDelete), true);
+        QVERIFY(!MapEditorSceneHandleIndex::itemsForLine(harness.scene, laterAfterObjectDelete).isEmpty());
+
+        generations.clear();
+        harness.tab->triggerUndo();
+        QTRY_VERIFY(!generations.isEmpty());
+        QCOMPARE(harness.tab->text(), afterVertexDelete);
+        QCOMPARE(counter(counters.sceneFullRefreshes), fullBefore);
+        QCOMPARE(counter(counters.scenePatchFallbacks), fallbacksBefore);
+        QCOMPARE(counter(counters.sceneGeometryPatches), patchesBefore + 5);
+        QCOMPARE(harness.tab->testHasMapSceneItemForLine(shiftedLaterLine), true);
     }
 
     void partialRepaintMatchesFullRepaint()

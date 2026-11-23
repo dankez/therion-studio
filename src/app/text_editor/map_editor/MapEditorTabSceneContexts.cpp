@@ -62,6 +62,8 @@ MapEditorSceneRefreshContext MapEditorTab::sceneRefreshContext()
         .undoStack = undoStack_,
         .itemsByLine = &mapItemsByLine_,
         .vertexItemsByKey = &mapVertexItemsByKey_,
+        .hiddenInspectorObjectLines = &hiddenInspectorObjectLines_,
+        .fadedInspectorObjectLines = &fadedInspectorObjectLines_,
         .commandApplyInProgress = &mapCommandApplyInProgress_,
         .sceneRefreshPending = &mapSceneRefreshPending_,
         .autoFitEnabled = &autoFitEnabled_,

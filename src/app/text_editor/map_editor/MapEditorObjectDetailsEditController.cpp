@@ -1113,25 +1113,37 @@ void MapEditorObjectDetailsEditController::deleteSelectedObjectFromSelection()
         return;
     }
     const MapEditorObjectDetailsContext context = context_;
-    applySourceTransactionWithOptionalHook(context_,
-                                           tr("Delete Map Object"),
-                                           beforeText,
-                                           deletePlan.updatedText,
-                                           deletePlan.focusLineAfterDelete,
-                                           [context, deletePlan]() {
-                                               MapEditorObjectVisibilityLines visibilityLines(
-                                                   context.hiddenInspectorObjectLines,
-                                                   context.fadedInspectorObjectLines);
-                                               for (int removedLineNumber : deletePlan.removedLineNumbers) {
-                                                   visibilityLines.remove(removedLineNumber);
-                                               }
-                                               *context.lastInspectorClickedObjectLineNumber = 0;
-                                               context.clearInspectorObjectSelection();
-                                               *context.toolbarStatusNote =
-                                                   QCoreApplication::translate("TherionStudio::MapEditorObjectDetailsEditController",
-                                                                               "Deleted selected object from source.");
-                                               context.refreshToolbarSummary();
-                                           });
+    const QSet<int> previousHidden = context.hiddenInspectorObjectLines != nullptr
+        ? *context.hiddenInspectorObjectLines : QSet<int>();
+    const QSet<int> previousFaded = context.fadedInspectorObjectLines != nullptr
+        ? *context.fadedInspectorObjectLines : QSet<int>();
+    MapEditorObjectVisibilityLines visibilityLines(
+        context.hiddenInspectorObjectLines, context.fadedInspectorObjectLines);
+    for (int removedLineNumber : deletePlan.removedLineNumbers) {
+        visibilityLines.remove(removedLineNumber);
+    }
+    const auto result = applySourceTransactionWithOptionalHook(
+        context_,
+        tr("Delete Map Object"),
+        beforeText,
+        deletePlan.updatedText,
+        deletePlan.focusLineAfterDelete,
+        [context]() {
+            *context.lastInspectorClickedObjectLineNumber = 0;
+            context.clearInspectorObjectSelection();
+            *context.toolbarStatusNote =
+                QCoreApplication::translate("TherionStudio::MapEditorObjectDetailsEditController",
+                                            "Deleted selected object from source.");
+            context.refreshToolbarSummary();
+        });
+    if (result != TextEditorSourceTransactionResult::Applied) {
+        if (context.hiddenInspectorObjectLines != nullptr) {
+            *context.hiddenInspectorObjectLines = previousHidden;
+        }
+        if (context.fadedInspectorObjectLines != nullptr) {
+            *context.fadedInspectorObjectLines = previousFaded;
+        }
+    }
 }
 
 void MapEditorObjectDetailsEditController::applyObjectQuickFieldEdits()

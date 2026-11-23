@@ -3,6 +3,7 @@
 #include <QHash>
 #include <QPointF>
 #include <QRectF>
+#include <QSet>
 #include <QString>
 #include <QtGlobal>
 #include <QVector>
@@ -56,6 +57,8 @@ struct MapEditorSceneRefreshContext
     QUndoStack *undoStack = nullptr;
     QHash<int, QGraphicsItem *> *itemsByLine = nullptr;
     QHash<QString, QGraphicsItem *> *vertexItemsByKey = nullptr;
+    QSet<int> *hiddenInspectorObjectLines = nullptr;
+    QSet<int> *fadedInspectorObjectLines = nullptr;
     bool *commandApplyInProgress = nullptr;
     bool *sceneRefreshPending = nullptr;
     bool *autoFitEnabled = nullptr;

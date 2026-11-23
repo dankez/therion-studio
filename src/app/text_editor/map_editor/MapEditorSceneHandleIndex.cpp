@@ -241,6 +241,24 @@ void moveKey(QGraphicsItem *item, const QPointF &sceneKey)
     insertIntoCell(*index, item, it.value());
 }
 
+void remapLineNumbers(const QGraphicsScene *scene, const QHash<int, int> &lineMap)
+{
+    SceneIndex *index = indexFor(scene);
+    if (index == nullptr || lineMap.isEmpty()) {
+        return;
+    }
+    QHash<int, QSet<QGraphicsItem *>> remappedByLine;
+    remappedByLine.reserve(index->byLine.size());
+    for (auto it = index->entries.begin(); it != index->entries.end(); ++it) {
+        const auto mapped = lineMap.constFind(it.value().lineNumber);
+        if (mapped != lineMap.constEnd()) {
+            it.value().lineNumber = mapped.value();
+        }
+        remappedByLine[it.value().lineNumber].insert(it.key());
+    }
+    index->byLine = std::move(remappedByLine);
+}
+
 QVector<QGraphicsItem *> itemsInRect(const QGraphicsScene *scene, const QRectF &sceneRect)
 {
     ++mapEditorPerformanceCounters().sceneHandleIndexQueries;
