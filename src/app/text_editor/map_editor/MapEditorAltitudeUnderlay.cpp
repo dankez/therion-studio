@@ -20,21 +20,57 @@ QHash<int, MapEditorAltitudeScrap> mapEditorAltitudeScraps(
     QHash<int, QString> identities;
     QHash<int, QString> namespaces;
     QHash<int, TherionStationNameTransform> transforms;
+    // One pass over the index. Scraps are matched by line and confirmed by name; when a source edit
+    // leaves index line numbers stale, a unique scrap name in this file still identifies the owner
+    // so station references keep their namespace instead of falling back to a project-wide search.
+    struct IndexedScrap
+    {
+        QString name;
+        QString namespacePath;
+    };
+    QHash<int, IndexedScrap> scrapsByLine;
+    QHash<QString, QString> ownerByScrapName;
+    QSet<QString> duplicateScrapNames;
+    {
+        const QString absoluteFilePath = QFileInfo(filePath).absoluteFilePath();
+        QHash<QString, bool> sourceIsCurrentFile;
+        for (const auto &entry : index.entries) {
+            if (entry.kind != ProjectStructureEntryKind::Scrap) {
+                continue;
+            }
+            auto sameFile = sourceIsCurrentFile.constFind(entry.sourceFile);
+            if (sameFile == sourceIsCurrentFile.cend()) {
+                sameFile = sourceIsCurrentFile.insert(
+                    entry.sourceFile, QFileInfo(entry.sourceFile).absoluteFilePath() == absoluteFilePath);
+            }
+            if (!*sameFile) {
+                continue;
+            }
+            if (!scrapsByLine.contains(entry.lineNumber)) {
+                scrapsByLine.insert(entry.lineNumber, {entry.name, entry.namespacePath});
+            }
+            if (ownerByScrapName.contains(entry.name)) {
+                duplicateScrapNames.insert(entry.name);
+            } else {
+                ownerByScrapName.insert(entry.name, entry.namespacePath);
+            }
+        }
+    }
     for (const auto &command : snapshot.logicalCommands) {
         if (command.metadata.commandName != QStringLiteral("scrap")) {
             continue;
         }
-        QString owner;
-        for (const auto &entry : index.entries) {
-            if (entry.kind == ProjectStructureEntryKind::Scrap
-                && QFileInfo(entry.sourceFile).absoluteFilePath() == QFileInfo(filePath).absoluteFilePath()
-                && entry.lineNumber == command.startLineNumber) {
-                owner = entry.namespacePath;
-                break;
-            }
-        }
         const QString name = command.positionalArgumentRanges.isEmpty()
             ? QString::number(command.startLineNumber) : command.positionalArgumentRanges.first().text;
+        const auto indexedAtLine = scrapsByLine.constFind(command.startLineNumber);
+        QString owner;
+        if (indexedAtLine != scrapsByLine.cend() && indexedAtLine->name == name) {
+            owner = indexedAtLine->namespacePath;
+        } else if (ownerByScrapName.contains(name) && !duplicateScrapNames.contains(name)) {
+            owner = ownerByScrapName.value(name);
+        } else if (indexedAtLine != scrapsByLine.cend()) {
+            owner = indexedAtLine->namespacePath;
+        }
         identities.insert(command.startLineNumber, filePath + QLatin1Char('|') + name + QLatin1Char('@') + owner);
         namespaces.insert(command.startLineNumber, owner);
         for (const auto &option : command.optionEntryRanges) {

@@ -490,6 +490,50 @@ private slots:
                  mapEditorAltitudeScraps(source, QStringLiteral("/project/s.th2"), {}, {}).value(1).color);
     }
 
+    void staleIndexLinesKeepScrapNamespaceByName()
+    {
+        // After a map edit shifts lines, the project index keeps old scrap line numbers until rescan;
+        // the owner namespace must still be found (by unique scrap name) instead of being dropped.
+        const QString text = QStringLiteral(
+            "# inserted 1\n# inserted 2\n"
+            "scrap s -projection plan\n"
+            "point 10 10 station -name a\n"
+            "point 90 90 station -name b\n"
+            "line wall -close on\n0 0\n100 0\n100 100\n0 100\nendline\nendscrap\n");
+        const auto document = TherionSourceDocument::fromText(text);
+        const auto logical = TherionSourceLogicalDocument::fromSourceDocument(document);
+        MapEditorSourceProjectionSnapshot source;
+        source.logicalCommands = logical.commands();
+        source.geometryProjection = Th2GeometryProjection::fromDocuments(document, logical);
+        source.sourceBounds = QRectF(0, 0, 100, 100);
+
+        ProjectIndexSnapshot index;
+        index.stationReferenceCandidateKeysByLookupKey = {
+            {QStringLiteral("a@cave"), {QStringLiteral("a@cave")}},
+            {QStringLiteral("b@cave"), {QStringLiteral("b@cave")}}};
+        ProjectStructureEntry scrap;
+        scrap.kind = ProjectStructureEntryKind::Scrap;
+        scrap.name = QStringLiteral("s");
+        scrap.namespacePath = QStringLiteral("cave");
+        scrap.sourceFile = QStringLiteral("/project/s.th2");
+        scrap.lineNumber = 3;
+        index.entries = {scrap};
+        ScrapAltitudeStations stations;
+        stations.heights = {{QStringLiteral("a@cave"), 300}, {QStringLiteral("b@cave"), 280}};
+        stations.entranceReference = QStringLiteral("a@cave");
+        stations.entranceHeightMetres = 300;
+        stations.minimumHeightMetres = 280;
+        stations.maximumHeightMetres = 300;
+
+        const auto fresh = mapEditorAltitudeScraps(source, QStringLiteral("/project/s.th2"), index, stations);
+        QVERIFY2(fresh.value(3).description.contains(QStringLiteral("-10.0")),
+                 qPrintable(fresh.value(3).description));
+        index.entries.first().lineNumber = 1;
+        const auto stale = mapEditorAltitudeScraps(source, QStringLiteral("/project/s.th2"), index, stations);
+        QCOMPARE(stale.value(3).description, fresh.value(3).description);
+        QCOMPARE(stale.value(3).color, fresh.value(3).color);
+    }
+
     void largeAreaHeavyMapStaysResponsiveWithUnderlayOffAndOn()
     {
         // Regression for the real-map "not responding" incident: thousands of objects with border-line

@@ -2,7 +2,9 @@
 #include "MapEditorSceneItems.h"
 #include "MapEditorXviBackgroundItem.h"
 #include "../../../core/ProjectStructureIndex.h"
+#include "../../../platform/DiagnosticLogging.h"
 
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGraphicsPathItem>
 #include <QGraphicsScene>
@@ -114,9 +116,25 @@ void MapEditorTab::setAltitudeUnderlayData(bool enabled, const ProjectIndexSnaps
 
 void MapEditorTab::refreshAltitudeUnderlay()
 {
+    const bool logTiming = diagnosticLoggingEnabled();
+    QElapsedTimer timer;
+    if (logTiming) {
+        timer.start();
+    }
+    qint64 stepStartNs = 0;
+    const auto stepMs = [&]() {
+        if (!logTiming) {
+            return qint64(0);
+        }
+        const qint64 now = timer.nsecsElapsed();
+        const qint64 elapsedMs = (now - stepStartNs) / 1000000;
+        stepStartNs = now;
+        return elapsedMs;
+    };
     altitudeUnderlayHint_.clear();
     refreshXviAltitudeColors();
     updateXviAltitudeLegend();
+    const qint64 xviMs = stepMs();
     const auto snapshot = sourceProjectionSnapshotForCurrentDocument();
     if (!snapshot || !mapScene_) {
         return;
@@ -125,11 +143,14 @@ void MapEditorTab::refreshAltitudeUnderlay()
         ? mapEditorAltitudeScraps(*snapshot, filePath(), altitudeProjectIndex_, altitudeStations_,
                                  mapAppearance_.altitudeUnderlayStrengthPercent)
         : QHash<int, MapEditorAltitudeScrap>{};
+    const qint64 scrapsMs = stepMs();
     int approximate = 0;
     const int rendered = renderMapEditorAltitudeUnderlay(mapScene_, *snapshot, scraps, &approximate);
+    const qint64 renderMs = stepMs();
     // Underlay items carry scrap line numbers and were replaced without a scene generation change.
     sceneInteractionIndex_.invalidate();
     applyInspectorObjectVisibility();
+    const qint64 visibilityMs = stepMs();
     if (altitudeUnderlayEnabled_) {
         altitudeUnderlayHint_ = tr("Underlay: mean relative heights; categorical colors where altitude is unavailable.");
         if (!altitudeStations_.entranceHeightMetres) {
@@ -140,6 +161,13 @@ void MapEditorTab::refreshAltitudeUnderlay()
                 .arg(rendered - approximate).arg(approximate).arg(scraps.size() - rendered);
     }
     emit statusHintChanged();
+    if (logTiming) {
+        qInfo().nospace() << "map-altitude-underlay enabled=" << altitudeUnderlayEnabled_
+                         << " scraps=" << scraps.size() << " rendered=" << rendered
+                         << " xvi_ms=" << xviMs << " scraps_ms=" << scrapsMs << " render_ms=" << renderMs
+                         << " visibility_ms=" << visibilityMs << " status_hint_ms=" << stepMs()
+                         << " total_ms=" << timer.elapsed();
+    }
 }
 
 void MapEditorTab::refreshXviAltitudeColors()

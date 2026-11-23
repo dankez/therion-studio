@@ -413,19 +413,37 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
     remapVisibilityLineSet(context.fadedInspectorObjectLines, removedLines, renderedLines, visibilityRenumberedLines);
     recordProjection(next, nextText, std::move(nextFeatures));
     const qint64 sceneNs = logTiming ? timer.nsecsElapsed() - preparationNs : 0;
+    qint64 uiStepStartNs = logTiming ? timer.nsecsElapsed() : 0;
+    const auto uiStepMs = [&]() {
+        if (!logTiming) {
+            return qint64(0);
+        }
+        const qint64 now = timer.nsecsElapsed();
+        const qint64 elapsedMs = (now - uiStepStartNs) / 1000000;
+        uiStepStartNs = now;
+        return elapsedMs;
+    };
     if (!restoreSceneRefreshSelection(context) && context.selectMapLine && context.currentLineNumber) {
         context.selectMapLine(context.currentLineNumber(), false);
     }
+    const qint64 selectMs = uiStepMs();
     context.applyInspectorObjectVisibility();
+    const qint64 visibilityMs = uiStepMs();
     context.updateGeometrySelectionPresentation();
+    const qint64 presentationMs = uiStepMs();
     context.updateInteractiveDrawPreview();
     context.refreshStatus();
+    const qint64 statusMs = uiStepMs();
     context.updateCommandSurfaceState();
+    const qint64 commandMs = uiStepMs();
     context.updateHelpPanel();
+    const qint64 helpMs = uiStepMs();
     context.refreshObjectDetailsPanel();
+    const qint64 detailsMs = uiStepMs();
     if (context.recordSceneProjectionRefreshCompleted) {
         context.recordSceneProjectionRefreshCompleted(generation);
     }
+    const qint64 completedMs = uiStepMs();
     mapEditorPerformanceCounters().sceneGeometryPatches.fetch_add(1, std::memory_order_relaxed);
     if (logTiming) {
         qInfo().nospace() << "map-scene-patch outcome=applied changed_features=" << renderedLines.size()
@@ -433,6 +451,10 @@ bool MapEditorScenePatchController::tryApply(const MapEditorSceneRefreshContext 
                          << " renumbered_features=" << renumberedLines.size()
                          << " preparation_ns=" << preparationNs << " scene_ns=" << sceneNs
                          << " ui_ns=" << timer.nsecsElapsed() - preparationNs - sceneNs
+                         << " ui_select_ms=" << selectMs << " ui_visibility_ms=" << visibilityMs
+                         << " ui_presentation_ms=" << presentationMs << " ui_status_ms=" << statusMs
+                         << " ui_command_ms=" << commandMs << " ui_help_ms=" << helpMs
+                         << " ui_details_ms=" << detailsMs << " ui_completed_ms=" << completedMs
                          << " elapsed_ns=" << timer.nsecsElapsed();
     }
     return true;
