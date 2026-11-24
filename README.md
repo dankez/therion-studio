@@ -3,6 +3,28 @@
 Therion Studio is a cross-platform Qt desktop editor for
 [Therion](https://therion.speleo.sk/)  – cave surveying software.
 
+## Latest build of this fork – v2026.11.24
+
+**Download:** [TherionStudio-2026.11.24-Linux-x86_64.AppImage](https://github.com/dankez/therion-studio/releases/latest)
+from [GitHub Releases](https://github.com/dankez/therion-studio/releases/latest).
+
+```sh
+chmod +x TherionStudio-2026.11.24-Linux-x86_64.AppImage
+./TherionStudio-2026.11.24-Linux-x86_64.AppImage
+```
+
+This fork (`dankez/therion-studio`) is the main package line. It follows
+[`ladislavb/therion-studio`](https://github.com/ladislavb/therion-studio) and adds:
+
+- **Scrap Distortion Traffic Lights** in Structure: scrap icons colored by Therion's maximum
+  distortion (green < 10 %, orange 10–25 %, red ≥ 25 %, gray without data).
+- Compile figures (survey statistics, map/scrap details, distortion) survive a restart or new window.
+- **Remove All Empty Objects** bulk fix in the Validation panel.
+- Faster large TH2 map editing: incremental scene patches on edit, delete and undo.
+- Integrated contributions from Andrew Akinson: Structure survey info panel, validation accuracy,
+  faster project index scans, startup timing, map edit performance, scrap fade and move-to,
+  line point fixes, `-namespace off` resolution and XVI background alignment.
+
 ## Motivation
 
 Therion Studio aims to modernize the Therion GUI with a Qt-based, cross-platform application that
@@ -39,8 +61,10 @@ requirements.
 
 ## Installation
 
-Installers and packages are published through
-[GitHub Releases](https://github.com/ladislavb/therion-studio/releases). Packaging details and
+Builds of this fork are published through
+[dankez/therion-studio Releases](https://github.com/dankez/therion-studio/releases). Upstream
+installers remain available from
+[ladislavb/therion-studio Releases](https://github.com/ladislavb/therion-studio/releases). Packaging details and
 local build instructions are maintained here:
 
 - Windows installer notes: [`packaging/windows/README.md`](packaging/windows/README.md)
