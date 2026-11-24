@@ -55,7 +55,7 @@ TherionScrapScale TherionScrap3D::parseScaleOption(const QStringList &tokens)
         return result;
     }
 
-    // Clean tokens: remove brackets e.g. "[-128" -> "-128", "m]" -> "m"
+    // The parser keeps a bracketed value as one token ("[-128 ... m]"); older callers pass it split ("[-128", "m]").
     QStringList cleaned;
     for (const QString &rawToken : tokens) {
         QString token = rawToken.trimmed();
@@ -65,10 +65,7 @@ TherionScrapScale TherionScrap3D::parseScaleOption(const QStringList &tokens)
         while (token.endsWith(QLatin1Char(']'))) {
             token.chop(1);
         }
-        token = token.trimmed();
-        if (!token.isEmpty()) {
-            cleaned.append(token);
-        }
+        cleaned.append(token.simplified().split(QLatin1Char(' '), Qt::SkipEmptyParts));
     }
 
     // Therion scrap scale format: [x1 y1 x2 y2 X1 Y1 X2 Y2 <unit>]

@@ -93,6 +93,14 @@ void TherionScrap3DTest::parseScaleOption()
     // 24.8666 / (851 - (-128)) = 24.8666 / 979 = 0.0254 m/pt
     QVERIFY(std::abs(scale.metersPerPoint - 0.0254) < 1e-4);
 
+    // The parser reads a bracketed value as one token, as Therion does.
+    const TherionScrapScale bracketedScale = TherionScrap3D::parseScaleOption(
+        {QStringLiteral("[-128 -1152 851\t-1152 0.0 0.0 24.8666 0.0 m]")});
+    QVERIFY(bracketedScale.valid);
+    QCOMPARE(bracketedScale.p1, scale.p1);
+    QCOMPARE(bracketedScale.p2, scale.p2);
+    QCOMPARE(bracketedScale.metersPerPoint, scale.metersPerPoint);
+
     // Test feet conversion: 100 ft = 30.48 m
     const QStringList feetTokens = {
         QStringLiteral("[0"),

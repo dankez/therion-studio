@@ -143,8 +143,18 @@ set(THERION_CORE_SOURCES
     src/core/TherionSourceValidator.h
     src/core/ProjectStructureIndex.cpp
     src/core/ProjectStructureIndex.h
+    src/core/ProjectMapCompositionCheck.cpp
+    src/core/ProjectMapCompositionCheck.h
     src/core/TherionStationNameRules.cpp
     src/core/TherionStationNameRules.h
+    src/core/TherionCodeBlockRules.cpp
+    src/core/TherionCodeBlockRules.h
+    src/core/TherionRepeatedStationPoints.cpp
+    src/core/TherionRepeatedStationPoints.h
+    src/core/TherionMapItemRules.cpp
+    src/core/TherionMapItemRules.h
+    src/core/TherionProjectionRules.cpp
+    src/core/TherionProjectionRules.h
     src/core/TherionDocumentParser.cpp
     src/core/TherionDocumentParser.h
     src/core/SessionStore.cpp
@@ -191,6 +201,7 @@ set(THERION_CORE_QTEST_SUITES
     TherionFileTypesTest
     TherionBackgroundMetadataTest
     TherionDocumentParserTest
+    TherionLineSplittingTest
     TherionXviParserTest
     TherionXviPassageTest
     TherionXviAreaAdjustTest
@@ -210,7 +221,8 @@ set(THERION_CORE_QTEST_SUITES
     ProjectStructureIndexQTest
     TherionTokenRulesTest
     TherionCentrelineTest
-    TherionScrap3DTest)
+    TherionScrap3DTest
+    TherionCodeBlockRulesTest)
 
 set(THERION_MAIN_WINDOW_QTEST_SUITES
     MainWindowHelpDocumentTest
@@ -226,6 +238,7 @@ set(THERION_MAIN_WINDOW_QTEST_SUITES
     ProjectFileWatchDeltaTest
     ProjectOutputsScannerTest
     ProjectValidationScannerQTest
+    ValidationSummaryTextTest
     ProjectStructureScannerTest
     MainWindowSessionDocumentServiceTest
     MainWindowSessionProjectServiceTest
@@ -457,6 +470,8 @@ set(THERION_APP_SOURCES
     src/app/ProjectValidationScanner.h
     src/app/ValidationResultsMarkdownExporter.cpp
     src/app/ValidationResultsMarkdownExporter.h
+    src/app/ValidationSummaryText.cpp
+    src/app/ValidationSummaryText.h
     src/app/ProjectStructureScanner.cpp
     src/app/ProjectStructureScanner.h
     src/app/TherionExecutableSelectionController.cpp
@@ -1302,6 +1317,7 @@ therion_add_core_qtest_runner(TherionCoreQTests
     tests/core/TherionFileTypesTest.cpp
     tests/core/TherionBackgroundMetadataTest.cpp
     tests/core/TherionDocumentParserTest.cpp
+    tests/core/TherionLineSplittingTest.cpp
     tests/core/TherionXviParserTest.cpp
     tests/core/TherionXviPassageTest.cpp
     tests/core/TherionXviAreaAdjustTest.cpp
@@ -1321,7 +1337,8 @@ therion_add_core_qtest_runner(TherionCoreQTests
     tests/core/TherionSourceTextTest.cpp
     tests/core/TherionTokenRulesTest.cpp
     tests/core/TherionCentrelineTest.cpp
-    tests/core/TherionScrap3DTest.cpp)
+    tests/core/TherionScrap3DTest.cpp
+    tests/core/TherionCodeBlockRulesTest.cpp)
 
 target_compile_definitions(TherionCoreQTests PRIVATE
     THERION_STUDIO_TEST_FIXTURE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
@@ -1568,6 +1585,14 @@ therion_add_app_unit_test(ProjectValidationScannerTest
     src/app/text_editor/block_editor/BlockEditorDirectiveRules.cpp
     src/app/text_editor/block_editor/BlockEditorSourceText.cpp)
 
+therion_add_app_unit_test(TherionCatalogOptionTablesTest
+    tests/TherionCatalogOptionTablesTest.cpp
+    src/app/text_editor/TextEditorValidationCatalog.cpp
+    src/app/text_editor/raw_editor/RawEditorCommandMetadataLoader.cpp
+    src/app/text_editor/block_editor/BlockEditorDirectiveRules.cpp
+    src/app/text_editor/block_editor/BlockEditorSourceText.cpp)
+target_link_libraries(TherionCatalogOptionTablesTest PRIVATE Qt6::Test)
+
 therion_add_app_unit_test(ProjectValidationControllerTest
     tests/ProjectValidationControllerTest.cpp)
 
@@ -1663,6 +1688,7 @@ qt_add_executable(MainWindowServiceQTests
     tests/ProjectFileWatchDeltaTest.cpp
     tests/ProjectOutputsScannerTest.cpp
     tests/ProjectValidationScannerQTest.cpp
+    tests/ValidationSummaryTextTest.cpp
     tests/ProjectStructureScannerTest.cpp
     tests/MainWindowSessionDocumentServiceTest.cpp
     tests/MainWindowSessionProjectServiceTest.cpp
@@ -2085,6 +2111,7 @@ set(THERION_UNIT_TEST_TARGETS
     ProjectSourceSnapshotTest
     ProjectSearchScannerTest
     ProjectValidationScannerTest
+    TherionCatalogOptionTablesTest
     ProjectValidationControllerTest
     ValidationResultsMarkdownExporterTest
     SessionStoreTest
