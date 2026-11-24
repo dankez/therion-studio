@@ -40,6 +40,7 @@ Therion language compatibility rules that affect parsing, namespaces, references
 - Keep UI shells thin and move parsing, indexing, file IO, process execution, source mutation, and reusable workflow rules into focused services or core types.
 - Keep the UI responsive by making expensive parsing, indexing, rendering, filesystem traversal, and Therion execution asynchronous, cancellable, debounced, or revision-keyed.
 - Keep validation and problem reporting centralized in the Validation surface. Structure remains an orientation and navigation view, not a second validator.
+- `StructureScrapDistortion` projects existing asynchronous compile figures into advisory Structure icon roles and renders them through a delegate. It owns no parsing, IO, source edits, or compiler diagnostics; missing figures remain distinct from low distortion, and out-of-date figures are drawn faded.
 - Move project validation toward a live diagnostic projection that updates from source/project changes. Manual validation actions are transitional controls, not the long-term primary workflow.
 
 ## Dependency Direction
@@ -275,6 +276,12 @@ own. `TherionCompileFiguresLoader` reads `.xtherion.dat` off the GUI thread with
 reuses `TherionSqlReportDatabase` rather than a second importer. It keeps the figures of the last compile that wrote a
 survey tree. `TherionDatabaseExportCompile` writes the temporary config for a one-off compile that adds a database
 export without changing the user's config; the compile itself runs through the normal runner.
+`TherionCompileFiguresSnapshotStore` copies the `.xtherion.dat` and database exports of each good compile into the
+application data folder (`compile-figures/<hash of config path>/`), replacing that config's previous copy atomically.
+`MainWindow` composes the store with the platform data path. When a project is indexed and the window has no compile
+figures yet, the loader restores the newest snapshot of the target or root config off the GUI thread; restored figures
+go through the same out-of-date check against the real sources, so later edits mark them out of date. The store only
+accepts file names it wrote itself and never reads paths taken from its metadata.
 
 Project-index namespace, reference, and duplicate-identifier behavior shall follow `docs/THERION_COMPATIBILITY.md`. In particular, survey/map/scrap names share their parent survey namespace, drawing object IDs share their containing scrap namespace, and identical object names in different survey namespaces are valid.
 

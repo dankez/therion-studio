@@ -3,6 +3,8 @@
 <TS version="2.1" language="fr" sourcelanguage="en">
 <context>
     <name>MainWindow</name>
+    <message><source>Scrap Distortion Traffic Lights</source><translation>Feux de distorsion des scraps</translation></message>
+    <message><source>Toggle scrap icon backgrounds using maximum distortion: green &lt;10 %, orange 10–&lt;25 %, red &gt;=25 %. Gray means missing or outdated data. Advisory thresholds, not Therion errors. Requires a successful compile with a database export. Off by default in each window.</source><translation>Colorer les icônes selon la distorsion maximale : vert &lt;10 %, orange 10–&lt;25 %, rouge &gt;=25 %. Le gris indique des données absentes ou périmées. Seuils indicatifs, pas des erreurs Therion. Nécessite une compilation réussie avec export de base de données. Désactivé par défaut dans chaque fenêtre.</translation></message>
     <message>
         <location filename="../src/app/MainWindow.cpp" line="403"/>
         <location filename="../src/app/MainWindow.cpp" line="860"/>
@@ -8674,5 +8676,14 @@ Supprimer le sommet malgré tout ?</translation>
         <source>in %1</source>
         <translation>dans %1</translation>
     </message>
+</context>
+<context>
+    <name>StructureScrapDistortion</name>
+    <message><source>Low</source><translation>Faible</translation></message>
+    <message><source>Moderate</source><translation>Modérée</translation></message>
+    <message><source>High</source><translation>Élevée</translation></message>
+    <message><source>Distortion unavailable. Compile with a database export.</source><translation>Distorsion indisponible. Compilez avec un export de base de données.</translation></message>
+    <message><source>Out of date: from the last successful compile; sources or a later compile changed since.</source><translation>Périmée : issue de la dernière compilation réussie ; les sources ou une compilation ultérieure ont changé depuis.</translation></message>
+    <message><source>%1 distortion: maximum %2 %. Advisory thresholds: green &lt;10 %, orange 10–&lt;25 %, red &gt;=25 %. This is a scrap statistic, not the location or cause of distortion.</source><translation>Distorsion %1 : maximum %2 %. Seuils indicatifs : vert &lt;10 %, orange 10–&lt;25 %, rouge &gt;=25 %. Statistique du scrap, pas la position ni la cause de la distorsion.</translation></message>
 </context>
 </TS>

@@ -5,6 +5,7 @@
 #include "MainWindowStructureRoles.h"
 #include "../platform/DiagnosticLogging.h"
 #include "TherionCompileFiguresLoader.h"
+#include "StructureScrapDistortion.h"
 #include "three_d_viewer/ThreeDViewerTab.h"
 #include "../core/TherionFileTypes.h"
 
@@ -753,8 +754,10 @@ void MainWindow::applyStructureSidebarIndex(const TherionStudio::ProjectIndexSna
     }
     // Entries change on every apply, so the info box is refreshed on each exit path.
     const auto refreshInfoBoxOnExit = qScopeGuard([this]() {
+        restoreCompileFiguresFromSnapshot();
         updateCompileFiguresSourcesChanged();
         refreshStructureInfoBox();
+        refreshStructureScrapDistortion();
     });
 
     const QString currentExpansionProjectRootPath = normalizedStructurePathKey(projectRootPath_);
@@ -1427,6 +1430,47 @@ void MainWindow::updateCompileFiguresSourcesChanged()
     }
     compileFiguresSourcesChanged_ = TherionStudio::therionCompileResultIsOutOfDate(
         compileFiguresLoader_->figures().compile, sourceFiles.values());
+    if (editorTabs_ != nullptr) {
+        for (int index = 0; index < editorTabs_->count(); ++index) {
+            QWidget *document = editorTabs_->widget(index);
+            if (sourceFiles.contains(documentPathForWidget(document)) && documentIsDirtyForWidget(document)) {
+                compileFiguresSourcesChanged_ = true;
+                break;
+            }
+        }
+    }
+}
+
+void MainWindow::restoreCompileFiguresFromSnapshot()
+{
+    if (compileFiguresLoader_ == nullptr || compileFiguresLoader_->figures().isAvailable()
+        || (compileResultRecorder_ != nullptr && compileResultRecorder_->latest().isValid())) {
+        return;
+    }
+    QStringList configPaths;
+    for (const QString &path : {resolvedTherionTargetConfigPath(), lastStructureSidebarProjectIndex_.rootConfigPath}) {
+        if (!path.isEmpty() && !configPaths.contains(path)) {
+            configPaths.append(path);
+        }
+    }
+    const QString key = configPaths.join(QLatin1Char('\n'));
+    if (configPaths.isEmpty() || key == compileFiguresRestoreKey_) {
+        return;
+    }
+    if (compileFiguresLoader_->restoreFromSnapshot(configPaths)) {
+        compileFiguresRestoreKey_ = key;
+    }
+}
+
+void MainWindow::refreshStructureScrapDistortion()
+{
+    const TherionStudio::TherionCompileFigures empty;
+    TherionStudio::StructureScrapDistortion::updateModel(
+        structureModel_,
+        lastStructureSidebarProjectIndex_.entries,
+        compileFiguresLoader_ != nullptr ? compileFiguresLoader_->figures() : empty,
+        structureScrapDistortionButton_ != nullptr && structureScrapDistortionButton_->isChecked(),
+        compileFiguresSourcesChanged_);
 }
 
 QModelIndex MainWindow::findMapObjectIndexForSourceLocation(const QString &filePath, int lineNumber) const

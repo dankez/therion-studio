@@ -10,6 +10,7 @@
 
 #include "MainWindowDocumentHelpers.h"
 #include "MainWindowDocumentTabOpenController.h"
+#include "TherionCompileFiguresLoader.h"
 #include "../platform/DiagnosticLogging.h"
 #include "text_editor/TextEditorTab.h"
 #include "text_editor/map_editor/MapEditorTab.h"
@@ -103,6 +104,12 @@ void MainWindow::handleDocumentTextChanged(QWidget *documentWidget)
     const QString documentPath = documentPathForWidget(documentWidget);
     const bool insideOpenProject = isDocumentPathInsideOpenProject(documentPath);
     const bool dirtyDocument = documentIsDirtyForWidget(documentWidget);
+    if (insideOpenProject && !compileFiguresSourcesChanged_ && compileFiguresLoader_ != nullptr
+        && compileFiguresLoader_->figures().isAvailable()) {
+        compileFiguresSourcesChanged_ = true;
+        refreshStructureInfoBox();
+        refreshStructureScrapDistortion();
+    }
     if (insideOpenProject) {
         if (TherionStudio::diagnosticLoggingEnabled()) {
             qInfo().noquote()

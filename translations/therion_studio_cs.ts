@@ -3,6 +3,8 @@
 <TS version="2.1" language="cs_CZ">
 <context>
     <name>MainWindow</name>
+    <message><source>Scrap Distortion Traffic Lights</source><translation>Semafor zkreslení scrapů</translation></message>
+    <message><source>Toggle scrap icon backgrounds using maximum distortion: green &lt;10 %, orange 10–&lt;25 %, red &gt;=25 %. Gray means missing or outdated data. Advisory thresholds, not Therion errors. Requires a successful compile with a database export. Off by default in each window.</source><translation>Zapnout podbarvení ikon scrapů podle maximálního zkreslení: zelená &lt;10 %, oranžová 10–&lt;25 %, červená &gt;=25 %. Šedá znamená chybějící nebo neaktuální údaje. Orientační hranice, nikoli chyby Therionu. Vyžaduje úspěšnou kompilaci s exportem databáze. V každém okně je ve výchozím stavu vypnuté.</translation></message>
     <message><source>Compiler log error (%1): %2</source><translation>Chyba protokolu kompilace (%1): %2</translation></message>
     <message><source>Preview: last 10,000 lines. Complete output: %1</source><translation>Náhled: posledních 10 000 řádků. Úplný výstup: %1</translation></message>
     <message><source>Copy the complete compiler output, including lines no longer in the preview.</source><translation>Zkopírovat úplný výstup kompilace včetně řádků, které již nejsou v náhledu.</translation></message>
@@ -9184,5 +9186,14 @@ subtype blocks</translation>
 <message><source>Show direction ticks for all walls and highlight walls with suspicious orientation.</source><translation>Zobrazit směrové čárky u všech stěn a zvýraznit stěny s podezřelou orientací.</translation></message>
 <message><source>Hide Wall Direction Check</source><translation>Skrýt kontrolu směru stěn</translation></message>
 <message><source>Check Wall Directions</source><translation>Zkontrolovat směry stěn</translation></message>
+</context>
+<context>
+    <name>StructureScrapDistortion</name>
+    <message><source>Low</source><translation>Nízké</translation></message>
+    <message><source>Moderate</source><translation>Střední</translation></message>
+    <message><source>High</source><translation>Vysoké</translation></message>
+    <message><source>Distortion unavailable. Compile with a database export.</source><translation>Zkreslení není dostupné. Zkompilujte s exportem databáze.</translation></message>
+    <message><source>Out of date: from the last successful compile; sources or a later compile changed since.</source><translation>Neaktuální: z posledního úspěšného překladu; zdroje nebo pozdější překlad se od té doby změnily.</translation></message>
+    <message><source>%1 distortion: maximum %2 %. Advisory thresholds: green &lt;10 %, orange 10–&lt;25 %, red &gt;=25 %. This is a scrap statistic, not the location or cause of distortion.</source><translation>%1 zkreslení: maximum %2 %. Orientační hranice: zelená &lt;10 %, oranžová 10–&lt;25 %, červená &gt;=25 %. Jde o statistiku scrapu, nikoli místo nebo příčinu zkreslení.</translation></message>
 </context>
 </TS>

@@ -304,6 +304,8 @@ private:
     QModelIndex findStructureIndexForSourceLocation(const QString &filePath, int lineNumber) const;
     QModelIndex findMapObjectIndexForSourceLocation(const QString &filePath, int lineNumber) const;
     void updateStructureSelectionFromEditorLocation(const QString &filePath, int lineNumber);
+    void refreshStructureScrapDistortion();
+    void restoreCompileFiguresFromSnapshot();
     void updateMapObjectSelectionFromEditorLocation(const QString &filePath, int lineNumber);
     QString structureOverrideKey(const QString &sourceFile, int lineNumber) const;
     void loadStructureNameOverrides();
@@ -416,6 +418,7 @@ private:
     QWidget *sidebarContainer_ = nullptr;
     QWidget *sidebarContentContainer_ = nullptr;
     QToolButton *sidebarStructureButton_ = nullptr;
+    QToolButton *structureScrapDistortionButton_ = nullptr;
     QToolButton *sidebarOutputsButton_ = nullptr;
     QToolButton *sidebarSearchButton_ = nullptr;
     QToolButton *sidebarValidationButton_ = nullptr;
@@ -497,6 +500,8 @@ private:
     TherionStudio::TherionCompileResultRecorder *compileResultRecorder_ = nullptr;
     TherionStudio::TherionCompileFiguresLoader *compileFiguresLoader_ = nullptr;
     bool compileFiguresSourcesChanged_ = false;
+    // Config paths the saved compile figures were last restored for, so a reindex does not restore again.
+    QString compileFiguresRestoreKey_;
     TherionStudio::TherionDatabaseExportCompile databaseExportCompile_;
     bool nextCompileAddsDatabaseExport_ = false;
     TherionStudio::MainWindowTherionConsoleController therionConsoleController_;

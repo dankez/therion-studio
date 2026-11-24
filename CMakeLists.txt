@@ -303,6 +303,9 @@ set(THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES
 set(THERION_MAP_EDITOR_UI_QTEST_SUITES
     MapEditorScrapVisibilityUiTest)
 
+set(THERION_MAIN_WINDOW_UI_QTEST_SUITES
+    StructureScrapDistortionTest)
+
 set(THERION_TEXT_EDITOR_DOCUMENT_QTEST_SUITES
     TextEditorDocumentIoServiceTest
     TextEditorDocumentPersistenceStateServiceTest
@@ -445,6 +448,8 @@ set(THERION_APP_SOURCES
     src/app/MainWindowTherionRunnerController.h
     src/app/MainWindowStructureInfoPresenter.cpp
     src/app/MainWindowStructureInfoPresenter.h
+    src/app/StructureScrapDistortion.cpp
+    src/app/StructureScrapDistortion.h
     src/app/MainWindowStructureNameOverridesService.cpp
     src/app/MainWindowStructureNameOverridesService.h
     src/app/MainWindowValidationFixApplyService.cpp
@@ -491,6 +496,8 @@ set(THERION_APP_SOURCES
     src/app/TherionCompileResult.h
     src/app/TherionCompileFiguresLoader.cpp
     src/app/TherionCompileFiguresLoader.h
+    src/app/TherionCompileFiguresSnapshotStore.cpp
+    src/app/TherionCompileFiguresSnapshotStore.h
     src/app/TherionDatabaseExportCompile.cpp
     src/app/TherionDatabaseExportCompile.h
     src/app/TherionExecutableSelectionController.cpp
@@ -1732,6 +1739,11 @@ qt_add_executable(MainWindowServiceQTests
 
 target_link_libraries(MainWindowServiceQTests PRIVATE therion_app Qt6::Test)
 
+qt_add_executable(MainWindowUiQTests
+    tests/MainWindowUiQTestMain.cpp
+    tests/StructureScrapDistortionTest.cpp)
+target_link_libraries(MainWindowUiQTests PRIVATE therion_app Qt6::Test)
+
 qt_add_resources(MainWindowServiceQTests MainWindowServiceQTestResources
     PREFIX "/"
     FILES
@@ -2193,6 +2205,7 @@ set(THERION_UI_TEST_TARGETS
     MapEditorViewportTabletInputTest)
 
 set(THERION_UI_QTEST_AGGREGATE_TARGETS
+    MainWindowUiQTests
     MapEditorBackgroundUiQTests
     MapEditorUiQTests)
 
@@ -2246,6 +2259,7 @@ set(THERION_QTEST_AGGREGATE_TARGETS
 set(THERION_QTEST_SUITE_CASES
     ${THERION_CORE_QTEST_SUITES}
     ${THERION_MAIN_WINDOW_QTEST_SUITES}
+    ${THERION_MAIN_WINDOW_UI_QTEST_SUITES}
     ${THERION_THREE_D_VIEWER_QTEST_SUITES}
     ${THERION_MAP_EDITOR_QTEST_SUITES}
     ${THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES}
@@ -2263,6 +2277,7 @@ endforeach()
 
 therion_add_qtest_suite_cases(TherionCoreQTests ${THERION_CORE_QTEST_SUITES})
 therion_add_qtest_suite_cases(MainWindowServiceQTests ${THERION_MAIN_WINDOW_QTEST_SUITES})
+therion_add_qtest_suite_cases(MainWindowUiQTests ${THERION_MAIN_WINDOW_UI_QTEST_SUITES})
 therion_add_qtest_suite_cases(ThreeDViewerQTests ${THERION_THREE_D_VIEWER_QTEST_SUITES})
 therion_add_qtest_suite_cases(MapEditorLogicQTests ${THERION_MAP_EDITOR_QTEST_SUITES})
 therion_add_qtest_suite_cases(MapEditorBackgroundUiQTests ${THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES})
@@ -2301,9 +2316,10 @@ set_tests_properties(
     PROPERTIES
         LABELS "ui")
 
-# These QTest suites drive real map editor widgets, so they belong with the UI
+# These QTest suites drive widgets and rendering, so they belong with the UI
 # tests rather than with the unit label applied to the other suite cases.
 set_tests_properties(
+    ${THERION_MAIN_WINDOW_UI_QTEST_SUITES}
     ${THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES}
     ${THERION_MAP_EDITOR_UI_QTEST_SUITES}
     PROPERTIES

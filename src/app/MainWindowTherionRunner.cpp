@@ -85,13 +85,18 @@ void MainWindow::buildConsole()
 
     therionRunnerService_ = new TherionStudio::TherionRunnerService(this);
     compileResultRecorder_ = new TherionStudio::TherionCompileResultRecorder(this);
-    compileFiguresLoader_ = new TherionStudio::TherionCompileFiguresLoader(this);
+    compileFiguresLoader_ = new TherionStudio::TherionCompileFiguresLoader(
+        TherionStudio::TherionCompileFiguresSnapshotStore(
+            QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
+                .filePath(QStringLiteral("compile-figures"))),
+        this);
     connect(compileResultRecorder_, &TherionStudio::TherionCompileResultRecorder::latestChanged, this, [this]() {
         compileFiguresLoader_->updateFromCompile(compileResultRecorder_->latest());
     });
     connect(compileFiguresLoader_, &TherionStudio::TherionCompileFiguresLoader::figuresChanged, this, [this]() {
         updateCompileFiguresSourcesChanged();
         refreshStructureInfoBox();
+        refreshStructureScrapDistortion();
     });
     TherionStudio::MainWindowTherionConsoleWiring::WiringInput wiringInput;
     wiringInput.context = this;
@@ -372,6 +377,7 @@ void MainWindow::resetProjectTherionRunContext()
     }
 
     activeTherionRunConfigPath_.clear();
+    compileFiguresRestoreKey_.clear();
     if (compileResultRecorder_ != nullptr) {
         compileResultRecorder_->clear();
     }

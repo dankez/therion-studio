@@ -15,6 +15,14 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
+- Manual acceptance pending for `Scrap Distortion Traffic Lights` in Structure: toggle on/off, Survey/Map parity,
+  low/moderate/high maximum distortion, gray missing data, faded out-of-date colors after edits/failed compile.
+  Thresholds are advisory (<10%, 10-<25%, >=25%); locating a maximum within a scrap requires richer Therion output
+  than SQL's aggregate AVG_DISTORTION/MAX_DISTORTION, not heuristic object blame.
+- Manual acceptance pending for restored compile figures (`TherionCompileFiguresSnapshotStore`): after one compile
+  with a database export, a restart/new window shows the Structure info distortion and traffic lights again, marked
+  out of date after source edits. Open question: a later normal compile without a database export still replaces the
+  saved distortion figures.
 - Map editor performance follows `plans/MAP_PERFORMANCE_PLAN.md` (completed slices, metrics, next priorities).
   Next: P1 Objects-tree update on undo/delete (28-35% of undo samples), then vertex-selection restore after edits
   (115-133 ms), then caching the underlay `resolveStationReference` fallback for maps outside the project graph (~10 s).

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TherionCompileFiguresSnapshotStore.h"
 #include "TherionCompileResult.h"
 
 #include "reports/TherionCompileDatabaseFigures.h"
@@ -24,6 +25,8 @@ struct TherionCompileFigures
     TherionCompileDatabaseFigures database;
     // A later compile failed or wrote no survey tree, so the figures are older.
     bool laterCompileFailed = false;
+    // Restored from the saved snapshot of an earlier window or app run, not from a compile in this window.
+    bool restored = false;
 
     [[nodiscard]] bool isAvailable() const { return compile.isValid(); }
 };
@@ -34,10 +37,16 @@ class TherionCompileFiguresLoader final : public QObject
     Q_OBJECT
 
 public:
-    explicit TherionCompileFiguresLoader(QObject *parent = nullptr);
+    // A disabled store keeps the figures for this window only.
+    explicit TherionCompileFiguresLoader(
+        TherionCompileFiguresSnapshotStore snapshotStore = TherionCompileFiguresSnapshotStore(),
+        QObject *parent = nullptr);
 
-    // An invalid result (project closed) clears the figures.
+    // An invalid result (project closed) clears the figures. Good figures are also saved to the snapshot store.
     void updateFromCompile(const TherionCompileResult &result);
+    // Loads the newest saved snapshot of configPaths when there are no figures yet and no compile is being read.
+    // Returns false when it did not start, so the caller can try again later.
+    bool restoreFromSnapshot(const QStringList &configPaths);
 
     [[nodiscard]] const TherionCompileFigures &figures() const;
 
@@ -51,11 +60,14 @@ private:
         TherionCompileResult compile;
         QVector<TherionXtherionSurvey> surveys;
         TherionCompileDatabaseFigures database;
+        bool restored = false;
     };
 
+    [[nodiscard]] static Loaded readCompileFiles(const TherionCompileResult &result, quint64 generation);
     void handleLoadFinished();
     void markLaterCompileFailed();
 
+    TherionCompileFiguresSnapshotStore snapshotStore_;
     quint64 generation_ = 0;
     TherionCompileFigures figures_;
     QFutureWatcher<Loaded> *loadWatcher_ = nullptr;

@@ -3,6 +3,7 @@
 #include "ui/ApplicationStyleSheets.h"
 #include "LucideIconFactory.h"
 #include "MainWindowStructureInfoPresenter.h"
+#include "StructureScrapDistortion.h"
 #include "ui/ApplicationControlMetrics.h"
 #include "ui/ApplicationSegmentedControlStyle.h"
 
@@ -364,6 +365,21 @@ void MainWindow::buildStructureSidebar()
     structureViewModeButtons_->addButton(mapViewButton, StructurePanelMapPage);
     structureLayout->addWidget(structureViewSelector);
 
+    structureScrapDistortionButton_ = new QToolButton(structurePage);
+    structureScrapDistortionButton_->setObjectName(QStringLiteral("structureScrapDistortionButton"));
+    structureScrapDistortionButton_->setText(tr("Scrap Distortion Traffic Lights"));
+    structureScrapDistortionButton_->setAccessibleName(tr("Scrap Distortion Traffic Lights"));
+    structureScrapDistortionButton_->setToolTip(
+        tr("Toggle scrap icon backgrounds using maximum distortion: green <10 %, orange 10–<25 %, red >=25 %. "
+           "Gray means missing or outdated data. Advisory thresholds, not Therion errors. "
+           "Requires a successful compile with a database export. Off by default in each window."));
+    structureScrapDistortionButton_->setCheckable(true);
+    structureScrapDistortionButton_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    connect(structureScrapDistortionButton_, &QToolButton::toggled, this, [this]() {
+        refreshStructureScrapDistortion();
+    });
+    structureLayout->addWidget(structureScrapDistortionButton_);
+
     structureViewStack_ = new QStackedWidget(structurePage);
     structureViewStack_->setObjectName(QStringLiteral("structureViewStack"));
     structureViewStack_->setMinimumWidth(0);
@@ -389,6 +405,7 @@ void MainWindow::buildStructureSidebar()
     structureTree_ = new QTreeView(surveyStructurePage);
     structureTree_->setMinimumWidth(0);
     structureTree_->setModel(structureModel_);
+    structureTree_->setItemDelegate(new TherionStudio::StructureScrapDistortion(structureTree_));
     structureTree_->setRootIsDecorated(true);
     structureTree_->setAnimated(true);
     structureTree_->setSelectionBehavior(QAbstractItemView::SelectRows);
