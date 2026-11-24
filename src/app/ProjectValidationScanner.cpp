@@ -353,15 +353,6 @@ bool containsEquivalentFinding(const QVector<ProjectValidationScanner::Finding> 
     return false;
 }
 
-QString normalizedOptionName(QString optionName)
-{
-    optionName = optionName.trimmed().toLower();
-    while (optionName.startsWith(QLatin1Char('-'))) {
-        optionName.remove(0, 1);
-    }
-    return optionName;
-}
-
 QSet<QString> indexedProjectSourceFiles(const ProjectIndexSnapshot &snapshot)
 {
     QSet<QString> sourceFiles;

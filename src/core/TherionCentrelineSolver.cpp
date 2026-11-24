@@ -117,7 +117,7 @@ QVector<bool> solveNetwork(int nodeCount,
         }
     }
     const int unknownCount = unknownNodes.size();
-    if (unknownCount == 0) {
+    if (unknownCount <= 0) {
         return positioned;
     }
 
