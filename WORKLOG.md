@@ -15,6 +15,9 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
+- Validation panel bulk cleanup: `Remove All Empty Objects (N)` removes all `empty-scrap-object` findings per file in
+  one undo step (`ValidationBulkFixPlanner`). Needs manual check on v42 and a decision whether other safe-fix codes get
+  the same bulk action.
 - Map editor performance follows `plans/MAP_PERFORMANCE_PLAN.md` (completed slices, metrics, next priorities).
   Next: P1 Objects-tree update on undo/delete (28-35% of undo samples), then vertex-selection restore after edits
   (115-133 ms), then caching the underlay `resolveStationReference` fallback for maps outside the project graph (~10 s).

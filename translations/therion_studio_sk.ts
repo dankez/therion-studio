@@ -2106,6 +2106,36 @@ Ak je súbor otvorený, najprv sa zavrie.</translation>
         <translation>Validačná oprava nebola použitá. Obnovujú sa výsledky validácie.</translation>
     </message>
     <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove All Empty Objects</source>
+        <translation>Odstrániť všetky prázdne objekty</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove All Empty Objects (%1)</source>
+        <translation>Odstrániť všetky prázdne objekty (%1)</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove every empty line or area block listed in the validation results. Each file changes in one undo step.</source>
+        <translation>Odstráni všetky prázdne bloky line alebo area uvedené vo výsledkoch validácie. Každý súbor sa zmení jedným krokom späť.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove %1 empty line or area block(s) from %2 file(s)? Each file changes in one undo step.</source>
+        <translation>Odstrániť %1 prázdnych blokov line alebo area z %2 súborov? Každý súbor sa zmení jedným krokom späť.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Removed %1 empty object(s).</source>
+        <translation>Odstránené prázdne objekty: %1.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Removed %1 empty object(s); %2 file(s) changed after validation and were skipped.</source>
+        <translation>Odstránené prázdne objekty: %1; súbory zmenené po validácii a preskočené: %2.</translation>
+    </message>
+    <message>
         <location filename="../src/app/MainWindowOutputsSidebar.cpp" line="31"/>
         <source>Model</source>
         <translation>Model</translation>

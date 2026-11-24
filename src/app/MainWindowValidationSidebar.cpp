@@ -2,6 +2,7 @@
 
 #include "ExportFileName.h"
 #include "MainWindowValidationFixApplyService.h"
+#include "ValidationBulkFixPlanner.h"
 #include "ValidationResultsMarkdownExporter.h"
 #include "../editor/ValidationSeverityStyle.h"
 #include "ValidationSummaryText.h"
@@ -294,6 +295,11 @@ void configureValidationSourcePreview(QPlainTextEdit *edit)
     edit->setMaximumHeight(72);
 }
 
+QString emptyScrapObjectDiagnosticCode()
+{
+    return QStringLiteral("empty-scrap-object");
+}
+
 bool validationFixRemovesSource(const TherionStudio::TherionSourceDiagnostic &diagnostic)
 {
     return diagnostic.hasFix
@@ -471,6 +477,15 @@ void MainWindow::buildValidationSidebar()
     validationApplyFixButton_->setEnabled(false);
     connect(validationApplyFixButton_, &QPushButton::clicked, this, &MainWindow::applySelectedValidationFix);
     validationActionRow->addWidget(validationApplyFixButton_);
+    validationRemoveEmptyObjectsButton_ = new QPushButton(tr("Remove All Empty Objects"), validationPage);
+    validationRemoveEmptyObjectsButton_->setEnabled(false);
+    validationRemoveEmptyObjectsButton_->setToolTip(
+        tr("Remove every empty line or area block listed in the validation results. Each file changes in one undo step."));
+    connect(validationRemoveEmptyObjectsButton_,
+            &QPushButton::clicked,
+            this,
+            &MainWindow::applyAllEmptyObjectValidationFixes);
+    validationActionRow->addWidget(validationRemoveEmptyObjectsButton_);
     validationLayout->addLayout(validationActionRow);
 
     sidebarPages_->addWidget(validationPage);
@@ -1167,6 +1182,17 @@ void MainWindow::handleValidationSelectionChanged(const QModelIndex &current, co
 {
     Q_UNUSED(previous)
 
+    if (validationRemoveEmptyObjectsButton_ != nullptr) {
+        const int emptyObjectCount = TherionStudio::ValidationBulkFixPlanner::fixCount(
+            TherionStudio::ValidationBulkFixPlanner::plan(validationDiagnostics_,
+                                                          validationDiagnosticFilePaths_,
+                                                          emptyScrapObjectDiagnosticCode()));
+        validationRemoveEmptyObjectsButton_->setEnabled(emptyObjectCount > 0);
+        validationRemoveEmptyObjectsButton_->setText(emptyObjectCount > 0
+                                                         ? tr("Remove All Empty Objects (%1)").arg(emptyObjectCount)
+                                                         : tr("Remove All Empty Objects"));
+    }
+
     const int diagnosticIndex = validationDiagnosticIndex(validationResultsModel_, current);
     if (diagnosticIndex < 0 || diagnosticIndex >= validationDiagnostics_.size()) {
         if (validationDetailTitleLabel_ != nullptr) {
@@ -1429,6 +1455,54 @@ void MainWindow::applySelectedValidationFix()
     if (validationStatusLabel_ != nullptr) {
         validationStatusLabel_->setText(
             tr("Validation fix was not applied. Refreshing validation results."));
+    }
+}
+
+void MainWindow::applyAllEmptyObjectValidationFixes()
+{
+    const QVector<TherionStudio::ValidationBulkFixFileBatch> batches =
+        TherionStudio::ValidationBulkFixPlanner::plan(validationDiagnostics_,
+                                                      validationDiagnosticFilePaths_,
+                                                      emptyScrapObjectDiagnosticCode());
+    const int fixCount = TherionStudio::ValidationBulkFixPlanner::fixCount(batches);
+    if (fixCount == 0) {
+        return;
+    }
+
+    const QMessageBox::StandardButton answer = QMessageBox::question(
+        this,
+        tr("Remove All Empty Objects"),
+        tr("Remove %1 empty line or area block(s) from %2 file(s)? Each file changes in one undo step.")
+            .arg(fixCount)
+            .arg(batches.size()),
+        QMessageBox::Yes | QMessageBox::Cancel,
+        QMessageBox::Cancel);
+    if (answer != QMessageBox::Yes) {
+        return;
+    }
+
+    int appliedFixCount = 0;
+    int skippedFileCount = 0;
+    for (const TherionStudio::ValidationBulkFixFileBatch &batch : batches) {
+        if (applyValidationFixesToValidatedDocument(batch.filePath, batch.fixes)) {
+            appliedFixCount += batch.fixes.size();
+        } else {
+            ++skippedFileCount;
+        }
+    }
+
+    if (validationProjectMode_) {
+        requestProjectValidation(TherionStudio::ProjectValidationController::Trigger::FixApplied, true);
+    } else {
+        triggerValidateDocumentForActiveDocument();
+    }
+    if (validationStatusLabel_ != nullptr) {
+        validationStatusLabel_->setText(
+            skippedFileCount == 0
+                ? tr("Removed %1 empty object(s).").arg(appliedFixCount)
+                : tr("Removed %1 empty object(s); %2 file(s) changed after validation and were skipped.")
+                      .arg(appliedFixCount)
+                      .arg(skippedFileCount));
     }
 }
 

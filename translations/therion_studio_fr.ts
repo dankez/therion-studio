@@ -1983,6 +1983,36 @@ Si le fichier est ouvert, il sera d&apos;abord fermé.</translation>
         <translation>La correction de validation n&apos;a pas été appliquée. Actualisation des résultats de validation.</translation>
     </message>
     <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove All Empty Objects</source>
+        <translation>Supprimer tous les objets vides</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove All Empty Objects (%1)</source>
+        <translation>Supprimer tous les objets vides (%1)</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove every empty line or area block listed in the validation results. Each file changes in one undo step.</source>
+        <translation>Supprime tous les blocs line ou area vides listés dans les résultats de validation. Chaque fichier est modifié en une seule étape d'annulation.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Remove %1 empty line or area block(s) from %2 file(s)? Each file changes in one undo step.</source>
+        <translation>Supprimer %1 bloc(s) line ou area vide(s) de %2 fichier(s) ? Chaque fichier est modifié en une seule étape d'annulation.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Removed %1 empty object(s).</source>
+        <translation>Objets vides supprimés : %1.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindowValidationSidebar.cpp" line="1"/>
+        <source>Removed %1 empty object(s); %2 file(s) changed after validation and were skipped.</source>
+        <translation>Objets vides supprimés : %1 ; %2 fichier(s) modifié(s) après la validation ont été ignoré(s).</translation>
+    </message>
+    <message>
         <location filename="../src/app/MainWindowOutputsSidebar.cpp" line="31"/>
         <source>Model</source>
         <translation>Modèle</translation>

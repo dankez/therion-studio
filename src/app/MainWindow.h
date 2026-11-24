@@ -217,6 +217,7 @@ private:
     void handleValidationSelectionChanged(const QModelIndex &current, const QModelIndex &previous);
     void openValidationResult(const QModelIndex &index);
     void applySelectedValidationFix();
+    void applyAllEmptyObjectValidationFixes();
     void exportValidationResultsMarkdown();
     bool applyValidationFixesToValidatedDocument(const QString &filePath,
                                                  const QVector<TherionStudio::TherionSourceDiagnosticFix> &fixes);
@@ -459,6 +460,7 @@ private:
     QPushButton *validationScanProjectButton_ = nullptr;
     QPushButton *validationExportMarkdownButton_ = nullptr;
     QPushButton *validationApplyFixButton_ = nullptr;
+    QPushButton *validationRemoveEmptyObjectsButton_ = nullptr;
     QPushButton *therionBrowseWorkingDirectoryButton_ = nullptr;
     QLineEdit *therionArgumentsEdit_ = nullptr;
     QComboBox *therionRunTargetCombo_ = nullptr;
