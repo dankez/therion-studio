@@ -94,6 +94,7 @@ should_bundle_runtime_library() {
 
     soname="$(basename "$lib_path")"
     case "$soname" in
+        libatomic.so* | \
         libb2.so* | \
         libblkid.so* | \
         libbrotlicommon.so* | \
