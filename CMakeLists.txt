@@ -278,7 +278,8 @@ set(THERION_MAP_EDITOR_BACKGROUND_UI_QTEST_SUITES
     MapEditorBackgroundRoundTripTest
     MapEditorSceneLifecycleTest
     MapEditorLinePreviewTest
-    MapEditorPointerStatusTest)
+    MapEditorPointerStatusTest
+    MapEditorRawValidationDeferralTest)
 
 set(THERION_MAP_EDITOR_UI_QTEST_SUITES
     MapEditorScrapVisibilityUiTest)
@@ -1969,7 +1970,8 @@ qt_add_executable(MapEditorBackgroundUiQTests
     tests/MapEditorBackgroundRoundTripTest.cpp
     tests/MapEditorSceneLifecycleTest.cpp
     tests/MapEditorLinePreviewTest.cpp
-    tests/MapEditorPointerStatusTest.cpp)
+    tests/MapEditorPointerStatusTest.cpp
+    tests/MapEditorRawValidationDeferralTest.cpp)
 
 target_link_libraries(MapEditorBackgroundUiQTests PRIVATE
     therion_map_editor_ui_test_support

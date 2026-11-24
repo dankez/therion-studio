@@ -28,6 +28,9 @@ public:
     // QSyntaxHighlighter re-formatting emits QTextDocument::contentsChanged even though the
     // text is unchanged; listeners use this to tell such notifications from real edits.
     [[nodiscard]] bool applyingFormatsOnly() const { return formatOnlyDepth_ > 0; }
+    // While the text is not shown (for example a map drawn in the Visual workspace), skip validator and external
+    // diagnostic formats, which revalidate the whole document on each edit; they are applied once when undeferred.
+    void setValidationFormatsDeferred(bool deferred);
 
 protected:
     void highlightBlock(const QString &text) override;
@@ -71,6 +74,8 @@ private:
     int validationGeneration_ = 0;
     bool applyingAsyncValidation_ = false;
     int formatOnlyDepth_ = 0;
+    bool validationFormatsDeferred_ = false;
+    bool validationFormatsPending_ = false;
     TherionSourceDocumentType sourceDocumentType_ = TherionSourceDocumentType::Unknown;
     CommandCatalogStore catalogStore_;
 };
