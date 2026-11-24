@@ -15,9 +15,6 @@ Active planning only. Completed history belongs in archive files. Stable archite
 
 ## Active Work
 
-- Validation panel bulk cleanup: `Remove All Empty Objects (N)` removes all `empty-scrap-object` findings per file in
-  one undo step (`ValidationBulkFixPlanner`). Needs manual check on v42 and a decision whether other safe-fix codes get
-  the same bulk action.
 - Map editor performance follows `plans/MAP_PERFORMANCE_PLAN.md` (completed slices, metrics, next priorities).
   Next: P1 Objects-tree update on undo/delete (28-35% of undo samples), then vertex-selection restore after edits
   (115-133 ms), then caching the underlay `resolveStationReference` fallback for maps outside the project graph (~10 s).
@@ -76,6 +73,18 @@ Active planning only. Completed history belongs in archive files. Stable archite
   and thickness in embedded and detached maps; verify other visible layers stay unchanged.
 - Manually review approximate passage outlines in representative projects;
   bounded fallback is intentionally incomplete and reports unfilled scraps.
+
+### Structure Info Panel
+
+- Planned in `plans/STRUCTURE_INFO_PANEL_PLAN.md`: an info box under the `Survey` and `Map` Structure trees, with
+  survey statistics from Therion's xtherion output first, then map and scrap details and survey extras from the SQL
+  export, all read from the user's compile. Slices 1-3 (source details, survey statistics from `.xtherion.dat`, and
+  map/scrap details from the SQL export) are integrated; next is slice 4, survey extras from the SQL export.
+
+### Compile Results
+
+- `TherionCompileResultRecorder` records the user's latest compile and the database and xtherion files it wrote, for
+  views that show compiled data (the structure info panel and Join Viewer).
 
 ### 2026.7.2 Planning
 

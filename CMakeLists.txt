@@ -105,6 +105,8 @@ set(THERION_CORE_SOURCES
     src/core/PocketTopoImport.h
     src/core/TherionBackgroundMetadata.cpp
     src/core/TherionBackgroundMetadata.h
+    src/core/TherionXtherionData.cpp
+    src/core/TherionXtherionData.h
     src/core/TherionXviParser.cpp
     src/core/TherionXviParser.h
     src/core/TherionFileTypes.h
@@ -202,6 +204,7 @@ set(THERION_CORE_QTEST_SUITES
     TherionBackgroundMetadataTest
     TherionDocumentParserTest
     TherionLineSplittingTest
+    TherionXtherionDataTest
     TherionXviParserTest
     TherionXviPassageTest
     TherionXviAreaAdjustTest
@@ -247,6 +250,8 @@ set(THERION_MAIN_WINDOW_QTEST_SUITES
     MainWindowSessionRestoreUiFlowServiceTest
     MainWindowSessionStateServiceTest
     MainWindowSessionWindowRestoreServiceTest
+    MainWindowStructureInfoPresenterTest
+    TherionCompileDatabaseFiguresTest
     MainWindowStructureNameOverridesServiceTest
     TherionSqlReportDatabaseTest
     TherionSqlReportWorkerTest)
@@ -316,11 +321,14 @@ set(THERION_BLOCK_EDITOR_QTEST_SUITES
     BlockEditorMoveSourceRewriterTest)
 
 set(THERION_RUNNER_SUPPORT_QTEST_SUITES
+    TherionCompileResultTest
     TherionExecutableSelectionControllerTest
     TherionRunnerConfigDisplayControllerTest
     TherionRunnerConfigResolverTest
     TherionRunnerOutputLinkerTest
-    TherionRunnerPresenterTest)
+    TherionRunnerPresenterTest
+    TherionCompileFiguresLoaderTest
+    TherionDatabaseExportCompileTest)
 
 set(THERION_PLATFORM_SOURCES
     src/platform/ApplicationIdentity.cpp
@@ -435,6 +443,8 @@ set(THERION_APP_SOURCES
     src/app/MainWindowDocumentTabOpenController.h
     src/app/MainWindowTherionRunnerController.cpp
     src/app/MainWindowTherionRunnerController.h
+    src/app/MainWindowStructureInfoPresenter.cpp
+    src/app/MainWindowStructureInfoPresenter.h
     src/app/MainWindowStructureNameOverridesService.cpp
     src/app/MainWindowStructureNameOverridesService.h
     src/app/MainWindowValidationFixApplyService.cpp
@@ -477,6 +487,12 @@ set(THERION_APP_SOURCES
     src/app/ValidationBulkFixPlanner.h
     src/app/ProjectStructureScanner.cpp
     src/app/ProjectStructureScanner.h
+    src/app/TherionCompileResult.cpp
+    src/app/TherionCompileResult.h
+    src/app/TherionCompileFiguresLoader.cpp
+    src/app/TherionCompileFiguresLoader.h
+    src/app/TherionDatabaseExportCompile.cpp
+    src/app/TherionDatabaseExportCompile.h
     src/app/TherionExecutableSelectionController.cpp
     src/app/TherionExecutableSelectionController.h
     src/app/TherionExecutableDetector.cpp
@@ -497,6 +513,8 @@ set(THERION_APP_SOURCES
     src/app/TherionRunnerStartResultPresenter.h
     src/app/TherionRunnerStartSuccessPresenter.cpp
     src/app/TherionRunnerStartSuccessPresenter.h
+    src/app/reports/TherionCompileDatabaseFigures.cpp
+    src/app/reports/TherionCompileDatabaseFigures.h
     src/app/reports/TherionSqlReportDatabase.cpp
     src/app/reports/TherionSqlReportDatabase.h
     src/app/reports/TherionSqlReportCsvExporter.cpp
@@ -1321,6 +1339,7 @@ therion_add_core_qtest_runner(TherionCoreQTests
     tests/core/TherionBackgroundMetadataTest.cpp
     tests/core/TherionDocumentParserTest.cpp
     tests/core/TherionLineSplittingTest.cpp
+    tests/core/TherionXtherionDataTest.cpp
     tests/core/TherionXviParserTest.cpp
     tests/core/TherionXviPassageTest.cpp
     tests/core/TherionXviAreaAdjustTest.cpp
@@ -1605,11 +1624,14 @@ target_link_libraries(ValidationResultsMarkdownExporterTest PRIVATE therion_app 
 
 qt_add_executable(TherionRunnerSupportQTests
     tests/TherionRunnerSupportQTestMain.cpp
+    tests/TherionCompileResultTest.cpp
     tests/TherionExecutableSelectionControllerTest.cpp
     tests/TherionRunnerConfigDisplayControllerTest.cpp
     tests/TherionRunnerConfigResolverTest.cpp
     tests/TherionRunnerOutputLinkerTest.cpp
-    tests/TherionRunnerPresenterTest.cpp)
+    tests/TherionRunnerPresenterTest.cpp
+    tests/TherionCompileFiguresLoaderTest.cpp
+    tests/TherionDatabaseExportCompileTest.cpp)
 
 target_link_libraries(TherionRunnerSupportQTests PRIVATE therion_app Qt6::Test)
 
@@ -1700,6 +1722,8 @@ qt_add_executable(MainWindowServiceQTests
     tests/MainWindowSessionRestoreUiFlowServiceTest.cpp
     tests/MainWindowSessionStateServiceTest.cpp
     tests/MainWindowSessionWindowRestoreServiceTest.cpp
+    tests/MainWindowStructureInfoPresenterTest.cpp
+    tests/TherionCompileDatabaseFiguresTest.cpp
     tests/MainWindowStructureNameOverridesServiceTest.cpp
     tests/TherionSqlReportDatabaseTest.cpp
     tests/TherionSqlReportWorkerTest.cpp
